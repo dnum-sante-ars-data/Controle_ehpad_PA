@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Fev 20 14:38:45 2023
-
-@author: mathieu.olivier
-"""
 import os
 import pandas as pd
 from unidecode import unidecode
@@ -12,127 +6,90 @@ import json
 import logging
 from os import listdir
 
-#Regle à respecter fichier excel seulement
-#La feuille d'interet doit etre placée en premier
-#Les noms de colonne doivent être ne première ligne et aucune colonne ne doit être vide sur la gauche
-
-# à déplacer dans utils/utils.py 
+# Fonction pour vérifier et supprimer un fichier existant
 def checkIfPathExists(file):
     if os.path.exists(file):
         os.remove(file)
         print('Ancien fichier écrasé')
-        
-        
-def _convertXlsxToCsv(inputExcelFilePath, outputCsvFilePath):
+
+# Conversion d'un fichier Excel en CSV
+def convertXlsxToCsv(inputExcelFilePath, outputCsvFilePath):
     try:
-    # Reading an excel file
-    #   sheetname = getSheetName()
+        # Lecture du fichier Excel
         excelFile = pd.read_excel(inputExcelFilePath, header=0)
         checkIfPathExists(outputCsvFilePath)
-    # Converting excel file into CSV file
-        excelFile.to_csv(outputCsvFilePath, index = None, header=True, sep=';', encoding='UTF-8')
+        # Conversion du fichier Excel en fichier CSV
+        excelFile.to_csv(outputCsvFilePath, index=None, header=True, sep=';', encoding='UTF-8')
         return outputCsvFilePath
     except ValueError as err:
         print(err)
-        return str(err) 
+        return str(err)
 
-        
-def _convertCsvToXlsx(inputCsvFilePath, outputExcelFilePath):
+# Conversion d'un fichier CSV en Excel
+def convertCsvToXlsx(inputCsvFilePath, outputExcelFilePath):
     try:
-    # Reading a csv file
-    #   sheetname = getSheetName()
-        csvFile = pd.read_csv(inputCsvFilePath)
+        # Lecture du fichier CSV
+        csvFile = pd.read_csv(inputCsvFilePath, sep=';', encoding='UTF-8')
         checkIfPathExists(outputExcelFilePath)
-    # Converting CSV file into Excel file
-        csvFile.to_excel(outputExcelFilePath, index = None, header=True, sep=';', encoding='UTF-8')
+        # Conversion du fichier CSV en fichier Excel
+        csvFile.to_excel(outputExcelFilePath, index=None, header=True, encoding='UTF-8')
         return outputExcelFilePath
     except ValueError as err:
         print(err)
-        return str(err)   
-    
-#_convertXlsxToCsv("C:/Users/mathieu.olivier/Documents/Helios/Script_V2/input/Calcul du nombre de signalements.xlsx")
-# à déplacer dans utils/utils.py et à appeler dans modules/init_db/init_db.py
-def _csvReader(csvFilePath):
-    df = pd.read_csv(csvFilePath, sep= ';', encoding='UTF-8',low_memory=False)
+        return str(err)
+
+# Lecture d'un fichier CSV
+def csvReader(csvFilePath):
+    df = pd.read_csv(csvFilePath, sep=';', encoding='UTF-8', low_memory=False)
     return df
 
-# à déplacer dans utils/utils.py et à appeler dans modules/init_db/init_db.py
-#Pousser le csv sans mettre en dataframe
-
-# à déplacer dans utils/utils.py et à appeler dans modules/init_db/init_db.py
-### Partie nettoyage des données
-
-
-def _cleanTxt(text):
+# Nettoyage du texte
+def cleanTxt(text):
     try:
-        text = unicode(text.lower(), 'utf-8')
-    except (TypeError, NameError): # unicode is a default on python 3 
+        text = str(text).lower()
+    except (TypeError, NameError): 
         pass
-    text = unidecode(text.lower())
-    text = text.encode('ascii', 'ignore')
-    text = text.decode("utf-8")
-
+    text = unidecode(text)
     text = re.sub('[ ]+', '_', text)
-    text = re.sub('[^0-9a-zA-Z_-]', '', text) 
+    text = re.sub('[^0-9a-zA-Z_-]', '', text)
     return str(text)
 
-def _cleanSrcData(df):
-# Enlever caractères spéciaux, accents, espace ( _ ) ,
-    df.columns = [ _cleanTxt(i) for i in df.columns.values.tolist()]
+# Nettoyage des données sources
+def cleanSrcData(df):
+    df.columns = [cleanTxt(i) for i in df.columns.values.tolist()]
     return df
 
-
-
+# Lecture des paramètres de configuration
 def read_settings(path_in, dict_key, elem):
-    """
-    Permet de lire le document settings et retourne les informations souhaitées au format dictionnaire.
-    Paramètres :
-        - path_in : Chemin du dossier settings où sont stockées les informations.
-        - dict_key : Clé du dictionnaire contenant les informations que l'on recherche.
-        - elem : Élément au sein du dictionnaire dont on souhaite retourner les informations.
-    """
     with open(path_in) as f:
         dict_ret = json.load(f)
-    
-    # Vérifier si la clé dict_key existe dans le dictionnaire
+
     if dict_key in dict_ret:
         param_config = dict_ret[dict_key]
     else:
         raise KeyError(f"La clé '{dict_key}' n'existe pas dans le fichier JSON")
 
-    # Si param_config est un dictionnaire, renvoyer l'élément directement
-    if isinstance(param_config, dict):
-        if elem in param_config:
-            return param_config[elem]
+    if isinstance(param_config, list) and len(param_config) > 0:
+        first_entry = param_config[0]
+        if elem in first_entry:
+            return first_entry[elem]
         else:
-            raise KeyError(f"La clé '{elem}' n'existe pas dans '{dict_key}'")
-    
-    # Si param_config est une liste, rechercher l'élément dans chaque dictionnaire de la liste
-    elif isinstance(param_config, list):
-        for param in param_config:
-            if elem in param:
-                return param[elem]
-        raise KeyError(f"L'élément '{elem}' n'a pas été trouvé dans la liste sous '{dict_key}'")
-    
+            raise KeyError(f"La clé '{elem}' n'existe pas dans le premier élément de la liste sous '{dict_key}'")
     else:
-        raise TypeError(f"Le contenu sous '{dict_key}' doit être un dictionnaire ou une liste de dictionnaires")
+        raise TypeError(f"Le contenu sous '{dict_key}' doit être une liste contenant un dictionnaire")
 
     logging.info("Lecture param config " + path_in + ".")
 
 
 # Fonction pour concaténer les différentes régions de SIVSS
-def _concatSignalement():
-    #créer une liste avec les noms de table de signalement
+def concatSignalement():
     folderPath = 'data/input/sivss'
-    allSignalFiles =  listdir(folderPath)
-    #allSignalFiles.remove('demo.xlsx')
+    allSignalFiles = listdir(folderPath)
     checkIfPathExists('data/to_csv/all_sivss.csv')
-    # create an Empty DataFrame object
     df = pd.DataFrame()
     for fileName in allSignalFiles:
-        df = pd.concat([df, pd.read_excel('data/input/sivss/'+fileName)])
+        df = pd.concat([df, pd.read_excel('data/input/sivss/' + fileName)])
     print('signalement concaténés')
-    df.to_csv('data/to_csv/all_sivss.csv', index = None, header=True, sep=';', encoding='UTF-8')
+    df.to_csv('data/to_csv/all_sivss.csv', index=None, header=True, sep=';', encoding='UTF-8')
     print('all_sivss.csv créé')
     return
- 

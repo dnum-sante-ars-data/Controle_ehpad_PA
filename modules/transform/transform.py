@@ -55,7 +55,7 @@ def inittable(conn):
 
     # Listes des vues à supprimer
     views = [
-        "tfiness_clean", "table_recla", "igas", "table_signalement", "sign", 
+        "tfiness_clean", "table_recla", "igas", "table_signalement", "sign","sign_HDF",
         "recla_signalement", "clean_occupation_N_2", "clean_capacite_totale_auto", 
         "clean_hebergement", "clean_tdb_n_4", "clean_tdb_n_3", "clean_tdb_n_2",
         "correspondance", "grouped_errd_charges", "grouped_errd_produitstarif",
@@ -63,7 +63,7 @@ def inittable(conn):
         "grouped_caph_charges", "grouped_caph_produitstarif", 
         "grouped_caph_produits70", "grouped_caph_produitsencaiss", 
         "grouped_capa_charges", "grouped_capa_produitstarif", "charges_produits",
-        "inspections", "communes"]
+        "inspections", "communes",]
   # Supprimer les vues existantes
     drop_existing_views(cursor, views)
     
@@ -103,20 +103,24 @@ def inittable(conn):
 
     igas = f"""
     CREATE TABLE igas AS 
-    SELECT IIF(LENGTH(se.ndeg_finessrpps) = 8, '0'|| se.ndeg_finessrpps, se.ndeg_finessrpps) as finess,  
-           SUM(IIF(se.motifs_igas like '%Hôtellerie-locaux-restauration%',1,0)) as 'Hôtellerie-locaux-restauration', 
-           SUM(IIF(se.motifs_igas like '%Problème d?organisation ou de fonctionnement de l?établissement ou du service%',1,0)) as 'Problème d?organisation ou de fonctionnement de l?établissement ou du service', 
-           SUM(IIF(se.motifs_igas like '%Problème de qualité des soins médicaux%',1,0)) as 'Problème de qualité des soins médicaux', 
-           SUM(IIF(se.motifs_igas like '%Problème de qualité des soins paramédicaux%',1,0)) as 'Problème de qualité des soins paramédicaux', 
-           SUM(IIF(se.motifs_igas like '%Recherche d?établissement ou d?un professionnel%',1,0)) as 'Recherche d?établissement ou d?un professionnel', 
-           SUM(IIF(se.motifs_igas like '%Mise en cause attitude des professionnels%',1,0)) as 'Mise en cause attitude des professionnels', 
-           SUM(IIF(se.motifs_igas like '%Informations et droits des usagers%',1,0)) as 'Informations et droits des usagers', 
-           SUM(IIF(se.motifs_igas like '%Facturation et honoraires%',1,0)) as 'Facturation et honoraires', 
-           SUM(IIF(se.motifs_igas like '%Santé-environnementale%',1,0)) as 'Santé-environnementale', 
-           SUM(IIF(se.motifs_igas like '%Activités d?esthétique réglementées%',1,0)) as 'Activités d?esthétique réglementées'
-    FROM reclamations_mars20_mars"""+param_N_1+""" se 
-    WHERE (se.Signalement = 'Non' or se.Signalement IS NULL) 
-    AND se.ndeg_finessrpps IS NOT NULL 
+    SELECT 
+	IIF(LENGTH(se.ndeg_finessrpps )= 8, '0'|| se.ndeg_finessrpps, se.ndeg_finessrpps) as finess, 
+	SUM(IIF(se.motifs_igas like '%Hôtellerie-locaux-restauration%',1,0)) as "Hôtellerie-locaux-restauration",
+	SUM(IIF(se.motifs_igas like '%Problème d?organisation ou de fonctionnement de l?établissement ou du service%',1,0)) as "Problème d?organisation ou de fonctionnement de l?établissement ou du service",
+	SUM(IIF(se.motifs_igas like '%Problème de qualité des soins médicaux%',1,0)) as "Problème de qualité des soins médicaux",
+	SUM(IIF(se.motifs_igas like '%Problème de qualité des soins paramédicaux%',1,0)) as "Problème de qualité des soins paramédicaux",
+	SUM(IIF(se.motifs_igas like '%Recherche d?établissement ou d?un professionnel%',1,0)) as "Recherche d?établissement ou d?un professionnel",
+	SUM(IIF(se.motifs_igas like '%Mise en cause attitude des professionnels%',1,0)) as "Mise en cause attitude des professionnels",
+	SUM(IIF(se.motifs_igas like '%Informations et droits des usagers%',1,0)) as "Informations et droits des usagers",
+	SUM(IIF(se.motifs_igas like '%Facturation et honoraires%',1,0)) as "Facturation et honoraires",
+	SUM(IIF(se.motifs_igas like '%Santé-environnementale%',1,0)) as "Santé-environnementale",
+	SUM(IIF(se.motifs_igas like '%Activités d?esthétique réglementées%',1,0)) as "Activités d?esthétique réglementées",
+	SUM(IIF(se.motifs_igas like '%A renseigner%',1,0)) as "A renseigner",
+	SUM(IIF(se.motifs_igas like '%COVID-19%',1,0)) as "COVID-19"
+    FROM reclamations_mars20_mars2023 se
+    WHERE 
+	(se.Signalement = 'Non' or se.Signalement IS NULL)
+	AND se.ndeg_finessrpps  IS NOT NULL
     GROUP BY 1
     """
     cursor.execute(igas)
@@ -125,12 +129,12 @@ def inittable(conn):
 
     table_signalement = f"""
     CREATE TABLE table_signalement AS 
-    SELECT declarant_organismendeg_finess, 
-           survenue_du_cas_en_collectivitendeg_finess,
-           date_de_reception, 
-           reclamation, 
-           declarant_type_etablissement_si_esems, 
-           ceci_est_un_eigs, 
+    SELECT DECLARANT_ORGANISME_NUMERO_FINESS, 
+           SCC_ORGANISME_FINESS,
+           DATE_RECEPTION, 
+           RECLAMATION, 
+           DECLARANT_ETABLISSEMENT_TYPE, 
+           EST_EIGS, 
            famille_principale, 
            nature_principale  
     FROM all_sivss
@@ -141,54 +145,133 @@ def inittable(conn):
 
     sign = f"""
     CREATE TABLE sign AS 
-    SELECT finess,
-           COUNT(*) as nb_signa,
-           SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND ceci_est_un_eigs = 'Non', 1, 0)) as "Nombre d'EI sur la période 36mois",
-           SUM(IIF(ceci_est_un_eigs = 'Oui', 1, 0)) as NB_EIGS,
-           SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND ceci_est_un_eigs = 'Non', 1, 0)) AS NB_EIAS
-    FROM (SELECT 
-            CASE 
-                WHEN SUBSTRING(tb.declarant_organismendeg_finess, -9) == SUBSTRING(CAST(tb.survenue_du_cas_en_collectivitendeg_finess as text), 1, 9)
-                    THEN SUBSTRING(tb.declarant_organismendeg_finess, -9)
-                WHEN tb.survenue_du_cas_en_collectivitendeg_finess IS NULL
-                    THEN SUBSTRING(tb.declarant_organismendeg_finess, -9)
-                ELSE SUBSTRING(CAST(tb.survenue_du_cas_en_collectivitendeg_finess as text), 1, 9)
-            END as finess, *
-          FROM table_signalement tb
-          WHERE tb.reclamation != 'Oui'
-         ) as sub_table
-    GROUP BY 1
-    """
+    SELECT 
+	finess,
+	COUNT(*) as nb_signa,
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non',1,0)) as "Nombre d'EI sur la période 36mois",
+	SUM(IIF(EST_EIGS = 'Oui', 1, 0)) as NB_EIGS,
+	SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non',1,0)) AS NB_EIAS,
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non',1,0)) + SUM(IIF(EST_EIGS = 'Oui', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non',1,0)) AS "Somme EI + EIGS + EIAS sur la période",
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Acte de prévention',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Acte de prévention', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Acte de prévention',1,0)) AS 'nb EI/EIG : Acte de prévention',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Autre prise en charge',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Autre prise en charge', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Autre prise en charge',1,0)) AS 'nb EI/EIG : Autre prise en charge',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Chute',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Chute', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Chute',1,0)) AS 'nb EI/EIG : Chute',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Disparition inquiétante et fugues (Hors SDRE/SDJ/SDT)',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Disparition inquiétante et fugues (Hors SDRE/SDJ/SDT)', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Disparition inquiétante et fugues (Hors SDRE/SDJ/SDT)',1,0)) AS 'nb EI/EIG : Disparition inquiétante et fugues (Hors SDRE/SDJ/SDT)',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Dispositif médical',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Dispositif médical', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Dispositif médical',1,0)) AS 'nb EI/EIG : Dispositif médical',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Fausse route',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Fausse route', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Fausse route',1,0)) AS 'nb EI/EIG : Fausse route',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Infection associée aux soins (IAS) hors ES',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Infection associée aux soins (IAS) hors ES', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Infection associée aux soins (IAS) hors ES',1,0)) AS 'nb EI/EIG : Infection associée aux soins (IAS) hors ES',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Infection associée aux soins en EMS et ambulatoire (IAS hors ES)',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Infection associée aux soins en EMS et ambulatoire (IAS hors ES)', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Infection associée aux soins en EMS et ambulatoire (IAS hors ES)',1,0)) AS 'nb EI/EIG : Infection associée aux soins en EMS et ambulatoire (IAS hors ES)',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Parcours/Coopération interprofessionnelle',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Parcours/Coopération interprofessionnelle', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Parcours/Coopération interprofessionnelle',1,0)) AS 'nb EI/EIG : Parcours/Coopération interprofessionnelle',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge chirurgicale',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Prise en charge chirurgicale', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge chirurgicale',1,0)) AS 'nb EI/EIG : Prise en charge chirurgicale',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge diagnostique',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Prise en charge diagnostique', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge diagnostique',1,0)) AS 'nb EI/EIG : Prise en charge diagnostique',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge en urgence',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Prise en charge en urgence', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge en urgence',1,0)) AS 'nb EI/EIG : Prise en charge en urgence',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge médicamenteuse',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Prise en charge médicamenteuse', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge médicamenteuse',1,0)) AS 'nb EI/EIG : Prise en charge médicamenteuse',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge des cancers',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Prise en charge des cancers', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge des cancers',1,0)) AS 'nb EI/EIG : Prise en charge des cancers',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge psychiatrique',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Prise en charge psychiatrique', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Prise en charge psychiatrique',1,0)) AS 'nb EI/EIG : Prise en charge psychiatrique',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Suicide',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Suicide', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Suicide',1,0)) AS 'nb EI/EIG : Suicide',
+	SUM(IIF(famille_principale = 'Evénements/incidents dans un établissement ou organisme' AND EST_EIGS = 'Non' AND nature_principale = 'Tentative de suicide',1,0)) + SUM(IIF(EST_EIGS = 'Oui' AND nature_principale = 'Tentative de suicide', 1, 0)) + SUM(IIF(famille_principale = 'Evénements indésirables/graves associés aux soins' AND EST_EIGS = 'Non' AND nature_principale = 'Tentative de suicide',1,0)) AS 'nb EI/EIG : Tentative de suicide'
+    FROM
+     (SELECT 
+		CASE 
+			WHEN substring(tb.DECLARANT_ORGANISME_NUMERO_FINESS,-9) == substring(CAST(tb.SCC_ORGANISME_FINESS as text),1,9)
+				THEN substring(tb.DECLARANT_ORGANISME_NUMERO_FINESS,-9)
+			WHEN tb.SCC_ORGANISME_FINESS IS NULL
+				THEN substring(tb.DECLARANT_ORGANISME_NUMERO_FINESS,-9)
+			ELSE 
+				substring(CAST(tb.SCC_ORGANISME_FINESS as text),1,9)
+		END as finess, *
+	 FROM table_signalement tb
+	 WHERE
+	 tb.RECLAMATION != 'Oui') as sub_table
+    GROUP BY 1"""
     cursor.execute(sign)
     conn.commit()
     print("sign a été ajouté")
+    
+    sign_HDF="""CREATE TABLE sign_HDF AS 
+		SELECT IIF(LENGTH(se.nadeg_finessrpps )= 8, '0'|| se.nadeg_finessrpps, se.nadeg_finessrpps) as finess,
+		COUNT(*) as nb_signa 
+		FROM RECLAMATIONs_mars20_mars2023 se 
+		WHERE se.signalement = 'Oui'AND se.nadeg_finessrpps  IS NOT NULL 
+		GROUP BY 1"""
+    cursor.execute(sign_HDF)
+    conn.commit()
+    print("sign_HDF a été ajouté")
 
     recla_signalement = f"""
     CREATE TABLE recla_signalement AS  
-    SELECT tfc.finess,
-           s.nb_signa,
-           tr.nb_recla,
-           s."Nombre d'EI sur la période 36mois",
-           s.NB_EIGS,
-           s.NB_EIAS,
-           i."Hôtellerie-locaux-restauration",
-           i."Problème d?organisation ou de fonctionnement de l?établissement ou du service",
-           i."Problème de qualité des soins médicaux",
-           i."Problème de qualité des soins paramédicaux",
-           i."Recherche d?établissement ou d?un professionnel",
-           i."Mise en cause attitude des professionnels",
-           i."Informations et droits des usagers",
-           i."Facturation et honoraires",
-           i."Santé-environnementale",
-           i."Activités d?esthétique réglementées"
-    FROM tfiness_clean tfc 
-    LEFT JOIN table_recla tr on tr.finess = tfc.finess
-    LEFT JOIN igas i on i.finess = tfc.finess
-    LEFT JOIN sign s on s.finess = tfc.finess
+    SELECT
+	tfc.finess,
+	s.nb_signa,
+	tr.nb_recla,
+	s."Nombre d'EI sur la période 36mois",
+	s.NB_EIGS,
+	s.NB_EIAS,
+	s."Somme EI + EIGS + EIAS sur la période",
+	s."nb EI/EIG : Acte de prévention",
+	s."nb EI/EIG : Autre prise en charge",
+	s."nb EI/EIG : Chute",
+	s."nb EI/EIG : Disparition inquiétante et fugues (Hors SDRE/SDJ/SDT)",
+	s."nb EI/EIG : Dispositif médical",
+	s."nb EI/EIG : Fausse route",
+	s."nb EI/EIG : Infection associée aux soins (IAS) hors ES",
+	s."nb EI/EIG : Infection associée aux soins en EMS et ambulatoire (IAS hors ES)",
+	s."nb EI/EIG : Parcours/Coopération interprofessionnelle",
+	s."nb EI/EIG : Prise en charge chirurgicale",
+	s."nb EI/EIG : Prise en charge diagnostique",
+	s."nb EI/EIG : Prise en charge en urgence",
+	s."nb EI/EIG : Prise en charge médicamenteuse",
+	s."nb EI/EIG : Prise en charge des cancers",
+	s."nb EI/EIG : Prise en charge psychiatrique",
+	s."nb EI/EIG : Suicide",
+	s."nb EI/EIG : Tentative de suicide",
+	i."Hôtellerie-locaux-restauration",
+	i."Problème d?organisation ou de fonctionnement de l?établissement ou du service",
+	i."Problème de qualité des soins médicaux",
+	i."Problème de qualité des soins paramédicaux",
+	i."Recherche d?établissement ou d?un professionnel",
+	i."Mise en cause attitude des professionnels",
+	i."Informations et droits des usagers",
+	i."Facturation et honoraires",
+	i."Santé-environnementale",
+	i."Activités d?esthétique réglementées",
+	i."A renseigner",
+	i."COVID-19"
+FROM 
+	tfiness_clean tfc 
+	LEFT JOIN table_recla tr on tr.finess = tfc.finess
+	LEFT JOIN igas i on i.finess = tfc.finess
+	LEFT JOIN sign s on s.finess = tfc.finess
     """
     cursor.execute(recla_signalement)
     conn.commit()
     print("recla_signalement a été ajouté")
+    
+    recla_signalement_HDF= """CREATE TABLE recla_signalement_HDF AS
+    SELECT
+	tfc.finess,
+	sh.nb_signa,
+	tr.nb_recla,
+	i."Hôtellerie-locaux-restauration",
+	i."Problème d?organisation ou de fonctionnement de l?établissement ou du service",
+	i."Problème de qualité des soins médicaux",
+	i."Problème de qualité des soins paramédicaux",
+	i."Recherche d?établissement ou d?un professionnel",
+	i."Mise en cause attitude des professionnels",
+	i."Informations et droits des usagers",
+	i."Facturation et honoraires",
+	i."Santé-environnementale",
+	i."Activités d?esthétique réglementées",
+	i."A renseigner",
+	i."COVID-19"
+    FROM 
+	tfiness_clean tfc 
+	LEFT JOIN table_recla tr on tr.finess = tfc.finess
+	LEFT JOIN igas i on i.finess = tfc.finess
+	LEFT JOIN sign_HDF sh on sh.finess = tfc.finess"""
+ 
+    cursor.execute(recla_signalement_HDF)
+    conn.commit()
+    print("recla_signalement_HDF a été ajouté")
 
     clean_occupation_N_2 = f"""
     CREATE TABLE clean_occupation_N_2 AS 
@@ -205,8 +288,8 @@ def inittable(conn):
 
     clean_capacite_totale_auto = f"""
     CREATE TABLE clean_capacite_totale_auto AS 
-    SELECT IIF(LENGTH(cta.etiquettes_de_ligne) = 8, '0'|| cta.etiquettes_de_ligne, cta.etiquettes_de_ligne) as finess, 
-           cta.somme_de_capacite_autorisee_totale as somme_de_capacite_autorisee_totale_
+    SELECT IIF(LENGTH(cta.etiquettes_de_lignes) = 8, '0'|| cta.etiquettes_de_lignes, cta.etiquettes_de_lignes) as finess, 
+           cta.somme_de_capacite_autorisee_totale_ as somme_de_capacite_autorisee_totale_
     FROM capacite_totale_auto cta 
     """
     cursor.execute(clean_capacite_totale_auto)
@@ -234,7 +317,7 @@ def inittable(conn):
 
     clean_tdb_n_3 = f"""
     CREATE TABLE clean_tdb_n_3 AS 
-    SELECT IIF(LENGTH(tdb_"""+param_N_3+""".finess_geographique) = 8, '0'|| tdb_"""+param_N_3+""".finess_geographique, tdb_"""+param_N_3+""".finess_geographique) as finess, *
+    SELECT IIF(LENGTH(tdb_"""+param_N_3+"""."finess géographique") = 8, '0'|| tdb_"""+param_N_3+"""."finess géographique", tdb_"""+param_N_3+"""."finess géographique") as finess, *
     FROM "export-tdbesms-"""+param_N_3+"""-region-agg" tdb_"""+param_N_3+"""
     """
     cursor.execute(clean_tdb_n_3)
@@ -252,10 +335,10 @@ def inittable(conn):
 
     correspondance =f"""
     CREATE TABLE correspondance AS 
-    SELECT SUBSTRING('cecpp.finess_-_rs_et', 1, 9) as finess,
+    SELECT SUBSTRING(cecpp."finess_-_rs_et", 1, 9) as finess,
            cecpp.cadre 
     FROM choix_errd_ca_pa_ph cecpp 
-    LEFT JOIN doublons_errd_ca dou on SUBSTRING(dou.finess, 1, 9) = SUBSTRING('cecpp.finess_-_rs_et', 1, 9) AND cecpp.cadre != 'ERRD' 
+    LEFT JOIN doublons_errd_ca dou on SUBSTRING(dou.finess, 1, 9) = SUBSTRING(cecpp."finess_-_rs_et", 1, 9) AND cecpp.cadre != 'ERRD' 
     WHERE dou.finess IS NULL
     """
     cursor.execute(correspondance)
@@ -490,7 +573,7 @@ def executeTransform(region):
 	    CASE
             WHEN tf.categ_code = 500
                THEN CAST(NULLTOZERO(ce.total_heberg_comp_inter_places_autorisees) as INTEGER) + CAST(NULLTOZERO(ce.total_accueil_de_jour_places_autorisees) as INTEGER) + CAST(NULLTOZERO(ce.total_accueil_de_nuit_places_autorisees) as INTEGER)
-            ELSE CAST(ccta.somme_de_capacite_autorisee_totale as INTEGER)
+            ELSE CAST(ccta.somme_de_capacite_autorisee_totale_ as INTEGER)
         END as "Capacité totale autorisée",
 	    CAST(ce.total_heberg_comp_inter_places_autorisees as INTEGER) as "HP Total auto",
 	    CAST(ce.total_accueil_de_jour_places_autorisees as INTEGER) as "AJ Total auto",
@@ -499,8 +582,8 @@ def executeTransform(region):
 	    etra.nombre_total_de_chambres_installees_au_3112 as "Nombre de places installées au 31/12/"""+param_N_2+"""",
 	    ROUND(gp.gmp) as GMP,
 	    ROUND(gp.pmp) as PMP,
-	    CAST(REPLACE(taux_plus_10_medics_cip13, ",", ".") AS FLOAT) as "Part des résidents ayant plus de 10 médicaments consommés par mois",
-	    CAST(REPLACE(eira.taux_atu, ",", ".") AS FLOAT) as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
+	    ROUND(CAST(REPLACE(taux_plus_10_medics_cip13, ",", ".") AS FLOAT),2) as "Part des résidents ayant plus de 10 médicaments consommés par mois",
+	    ROUND(CAST(REPLACE(eira.taux_atu, ",", ".") AS FLOAT),2) as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
 	    --"" as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
 	    CAST(REPLACE(taux_hospit_mco, ",", ".") AS FLOAT) as "Taux de recours à l'hospitalisation MCO des résidents d'EHPAD",
 	    CAST(REPLACE(taux_hospit_had, ",", ".") AS FLOAT) as "Taux de recours à l'HAD des résidents d'EHPAD",
@@ -509,33 +592,33 @@ def executeTransform(region):
 	    ROUND(chpr."Produits du compte 70") AS "Produits du compte 70",
 	    ROUND(chpr."Total des produits (hors c/775, 777, 7781 et 78)") AS "Total des produits (hors c/775, 777, 7781 et 78)",
 	    "" as "Saisie des indicateurs du TDB MS (campagne """+param_N_2+""")",
-	    CAST(d2.taux_dabsenteisme_hors_formation_en_ as decmail) as "Taux d'absentéisme """+param_N_5+"""",
-	    etra2.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_4+"""",
-	    etra.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_1+"""",
-        ROUND(MOY3(d2.taux_dabsenteisme_hors_formation_en_ ,etra2.taux_dabsenteisme_hors_formation_en_ , etra.taux_dabsenteisme_hors_formation_en_) ,2) as "Absentéisme moyen sur la période """+param_N_5+"""-"""+param_N_1+"""",
-	    CAST(d2.taux_de_rotation_des_personnels as decimal) as "Taux de rotation du personnel titulaire """+param_N_5+"""",
-	    etra2.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_4+"""",
-	    etra.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_1+"""",
-	    ROUND(MOY3(d2.taux_de_rotation_des_personnels , etra2.taux_de_rotation_des_personnels , etra.taux_de_rotation_des_personnels), 2) as "Rotation moyenne du personnel sur la période """+param_N_5+"""-"""+param_N_1+"""",
-	    CAST(d2.taux_detp_vacants as decimal) as "ETP vacants """+param_N_5+"""",
-	    etra2.taux_detp_vacants as "ETP vacants """+param_N_4+"""",
-	    etra.taux_detp_vacants as "ETP vacants """+param_N_1+"""",
-	    etra.dont_taux_detp_vacants_concernant_la_fonction_soins as "dont fonctions soins """+param_N_1+"""",
-	    etra.dont_taux_detp_vacants_concernant_la_fonction_socio_educative as "dont fonctions socio-éducatives """+param_N_1+"""", 
-	    CAST(REPLACE(d3.taux_de_prestations_externes_sur_les_prestations_directes,',','.')as decimal) as "Taux de prestations externes sur les prestations directes """+param_N_5+"""",
-	    etra2.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes """+param_N_4+"""", 
-	    etra.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes """+param_N_1+"""",
-	    ROUND(MOY3(d3.taux_de_prestations_externes_sur_les_prestations_directes , etra2.taux_de_prestations_externes_sur_les_prestations_directes , etra.taux_de_prestations_externes_sur_les_prestations_directes) ,4) as "Taux moyen de prestations externes sur les prestations directes",
-	    ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_5+"""",
-        ROUND((etra2.etp_directionencadrement + etra2.etp_administration_gestion + etra2.etp_services_generaux + etra2.etp_restauration + etra2."etp_socio-educatif" + etra2.etp_paramedical + etra2.etp_psychologue + etra2.etp_ash + etra2.etp_medical + etra2.etp_personnel_education_nationale + etra2.etp_autres_fonctions)/etra2.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_4+"""",
-	    ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_1+"""",
-	    MOY3(ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , ROUND((etra2.etp_directionencadrement + etra2.etp_administration_gestion + etra2.etp_services_generaux + etra2.etp_restauration + etra2."etp_socio-educatif" + etra2.etp_paramedical + etra2.etp_psychologue + etra2.etp_ash + etra2.etp_medical + etra2.etp_personnel_education_nationale + etra2.etp_autres_fonctions)/etra2.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , 
-        ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2))AS "Nombre moyen d'ETP par usager sur la période 2018-"""+param_N_4+"""",
-	    ROUND((etra.etp_paramedical + etra.etp_medical)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "ETP 'soins' par usager en """+param_N_1+"""",
-	    ROUND(etra."-_dont_nombre_detp_reels_de_medecin_coordonnateur", 2) as "dont médecin coordonnateur",
+	    CAST(d2.taux_dabsenteisme_hors_formation_en_ as decmail) as "Taux d'absentéisme """+param_N_4+"""",
+	    etra2."Taux d'absentéisme (hors formation) en %"    as "Taux d'absentéisme """+param_N_4+"'"""",
+	    etra.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_2+"""",
+        ROUND(MOY3(d2.taux_dabsenteisme_hors_formation_en_ ,etra2."Taux d'absentéisme (hors formation) en %"     , etra.taux_dabsenteisme_hors_formation_en_) ,2) as "Absentéisme moyen sur la période """+param_N_4+"""-"""+param_N_2+"""",
+	    CAST(d2.taux_de_rotation_des_personnels as decimal) as "Taux de rotation du personnel titulaire """+param_N_4+"""",
+	    etra2."Taux de rotation des personnels" as "Taux de rotation du personnel titulaire """+param_N_3+"""",
+	    etra.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_2+"""",
+	    ROUND(MOY3(d2.taux_de_rotation_des_personnels , etra2."Taux de rotation des personnels" , etra.taux_de_rotation_des_personnels), 2) as "Rotation moyenne du personnel sur la période """+param_N_4+"""-"""+param_N_2+"""",
+	    CAST(d2.taux_detp_vacants as decimal) as "ETP vacants """+param_N_4+"""",
+	    etra2."Taux d'ETP vacants"  as "ETP vacants """+param_N_3+"""",
+	    etra.taux_detp_vacants as "ETP vacants """+param_N_2+"""",
+	    etra.dont_taux_detp_vacants_concernant_la_fonction_soins as "dont fonctions soins """+param_N_2+"""",
+	    etra.dont_taux_detp_vacants_concernant_la_fonction_socio_educative as "dont fonctions socio-éducatives """+param_N_2+"""", 
+	    CAST(REPLACE(d3.taux_de_prestations_externes_sur_les_prestations_directes,',','.')as decimal) as "Taux de prestations externes sur les prestations directes """+param_N_4+"""",
+	    etra2."Taux de prestations externes sur les prestations directes" as "Taux de prestations externes sur les prestations directes """+param_N_3+"""", 
+	    etra.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes """+param_N_2+"""",
+	    ROUND(MOY3(d3.taux_de_prestations_externes_sur_les_prestations_directes , etra2."Taux de prestations externes sur les prestations directes" , etra.taux_de_prestations_externes_sur_les_prestations_directes) ,4) as "Taux moyen de prestations externes sur les prestations directes",
+	    ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_4+"""",
+        ROUND((etra2."ETP Direction/Encadrement" + etra2."ETP Administration /Gestion" + etra2."ETP Services généraux" + etra2."ETP Restauration" + etra2."ETP Socio-éducatif" + etra2."ETP Paramédical" + etra2."ETP Psychologue" + etra2."ETP ASH" + etra2."ETP Médical" + etra2."ETP Personnel Education nationale"  + etra2."ETP Autres fonctions" )/etra2."Nombre de personnes accompagnées dans l'effectif au 31.12" , 2) as "Nombre total d'ETP par usager en """+param_N_3+"""",
+	    ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_2+"""",
+	    MOY3(ROUND(ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , ROUND((etra2."ETP Direction/Encadrement" + etra2."ETP Administration /Gestion" + etra2."ETP Services généraux" + etra2."ETP Restauration" + etra2."ETP Socio-éducatif" + etra2."ETP Paramédical" + etra2."ETP Psychologue" + etra2."ETP ASH" + etra2."ETP Médical" + etra2."ETP Personnel Education nationale"  + etra2."ETP Autres fonctions" )/etra2."Nombre de personnes accompagnées dans l'effectif au 31.12" , 2) , 
+        ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2),2))AS "Nombre moyen d'ETP par usager sur la période """+param_N_4+"""-"""+param_N_2+"""",
+	    ROUND((etra.etp_paramedical + etra.etp_medical)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "ETP 'soins' par usager en """+param_N_2+"""",
+	    etra."-_dont_nombre_detp_reels_de_medecin_coordonnateur" as "dont médecin coordonnateur",
 	    ROUND(etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions, 2) as "Total du nombre d'ETP",
-	    NULLTOZERO(rs.nb_recla) as "Nombre de réclamations sur la période 2018-"""+param_N_2+"""",
-	    NULLTOZERO(ROUND(CAST(rs.nb_recla AS FLOAT) / CAST(ccta.somme_de_capacite_autorisee_totale AS FLOAT), 4)*100) as "Rapport réclamations / capacité",
+	    NULLTOZERO(rs.nb_recla) as "Nombre de réclamations sur la période"""+param_N_4+"""-"""+param_N_2+"""",
+	    NULLTOZERO(ROUND(CAST(rs.nb_recla AS FLOAT) / CAST(ccta.somme_de_capacite_autorisee_totale_ AS FLOAT), 4)*100) as "Rapport réclamations / capacité",
 	    NULLTOZERO(rs."Hôtellerie-locaux-restauration") as "Recla IGAS : Hôtellerie-locaux-restauration",
 	    NULLTOZERO(rs."Problème d?organisation ou de fonctionnement de l?établissement ou du service") as "Recla IGAS : Problème d’organisation ou de fonctionnement de l’établissement ou du service",
 	    NULLTOZERO(rs."Problème de qualité des soins médicaux") as "Recla IGAS : Problème de qualité des soins médicaux",
@@ -546,11 +629,11 @@ def executeTransform(region):
 	    NULLTOZERO(rs."Facturation et honoraires") as "Recla IGAS : Facturation et honoraires",
 	    NULLTOZERO(rs."Santé-environnementale") as "Recla IGAS : Santé-environnementale",
 	    NULLTOZERO(rs."Activités d?esthétique réglementées") as "Recla IGAS : Activités d’esthétique réglementées",
-	    NULLTOZERO(rs.nb_signa) as "Nombre de Signalement sur la période """+param_N_4+"""-"""+param_N_1+"""",
-	    NULLTOZERO(i."ICE """+param_N_2+""" (réalisé)") as "ICE """+param_N_2+""" (réalisé)",
-	    NULLTOZERO(i."Inspection SUR SITE """+param_N_2+""" - Déjà réalisée") as "Inspection SUR SITE """+param_N_2+""" - Déjà réalisée",
-	    NULLTOZERO(i."Controle SUR PIECE """+param_N_2+""" - Déjà réalisé") as "Controle SUR PIECE """+param_N_2+""" - Déjà réalisé",
-	    NULLTOZERO(i."Inspection / contrôle Programmé """+param_N_1+"""") as "Inspection / contrôle Programmé """+param_N_1+""""
+	    NULLTOZERO(rs.nb_signa) as "Nombre de Signalement sur la période """+param_N_3+"""-"""+param_N_1+"""",
+	    NULLTOZERO(i.'ICE """+param_N_2+""" (réalisé)') as 'ICE """+param_N_2+""" (réalisé)',
+	    NULLTOZERO(i.'Inspection SUR SITE """+param_N_2+"""- Déjà réalisée') as 'Inspection SUR SITE """+param_N_2+""" - Déjà réalisée',
+	    NULLTOZERO(i.'Controle SUR PIECE """+param_N_2+"""- Déjà réalisé') as 'Controle SUR PIECE """+param_N_2+""" - Déjà réalisé',
+	    NULLTOZERO(i.'Inspection / contrôle Programmé """+param_N_1+"""') as 'Inspection / contrôle Programmé """+param_N_1+"""'
         FROM
 	    tfiness_clean tf 
 	    LEFT JOIN communes c on c.com = tf.com_code
@@ -559,19 +642,19 @@ def executeTransform(region):
 	    LEFT JOIN capacites_ehpad ce on ce."et-ndegfiness" = tf.finess
 	    LEFT JOIN clean_capacite_totale_auto ccta on ccta.finess = tf.finess
 	    LEFT JOIN occupation_"""+param_N_5+"""_"""+param_N_4+""" o1 on o1.finess_19 = tf.finess
-	    LEFT JOIN occupation_"""+param_N_1+""" o2  on o2.finess = tf.finess
+	    LEFT JOIN occupation_"""+param_N_3+""" o2  on o2.finess = tf.finess
 	    LEFT JOIN clean_occupation_N_2 co3  on co3.finess = tf.finess
 	    LEFT JOIN clean_tdb_n_2 etra on etra.finess = tf.finess
 	    LEFT JOIN clean_hebergement c_h on c_h.finess = tf.finess
 	    LEFT JOIN gmp_pmp gp on IIF(LENGTH(gp.finess_et) = 8, '0'|| gp.finess_et, gp.finess_et) = tf.finess
 	    LEFT JOIN charges_produits chpr on chpr.finess = tf.finess
-	    LEFT JOIN EHPAD_Indicateurs_"""+param_N_1+"""_REG_agg eira on eira.et_finess = tf.finess
+	    LEFT JOIN EHPAD_Indicateurs_"""+param_N_3+"""_REG_agg eira on eira.et_finess = tf.finess
 	    LEFT JOIN clean_tdb_n_4 d2 on SUBSTRING(d2.finess,1,9) = tf.finess
-	    LEFT JOIN clean_tdb_"""+param_N_1+""" etra2 on etra2.finess = tf.finess
-	    LEFT JOIN clean_tdb_"""+param_N_4+""" d3 on SUBSTRING(d3.finess,1,9) = tf.finess
+	    LEFT JOIN clean_tdb_n_3 etra2 on etra2.finess = tf.finess
+	    LEFT JOIN clean_tdb_n_4 d3 on SUBSTRING(d3.finess,1,9) = tf.finess
 	    LEFT JOIN recla_signalement rs on rs.finess = tf.finess
 	    LEFT JOIN inspections i on i.finess = tf.finess
-        WHERE r.reg = '{}'
+        WHERE r.reg = """+str(region)+"""
         ORDER BY tf.finess ASC"""
         cursor.execute(df_ciblage,(region,))
         res=cursor.fetchall()
@@ -599,13 +682,13 @@ def executeTransform(region):
 	     CASE
             WHEN tf.categ_code = 500
                THEN CAST(NULLTOZERO(ce.total_heberg_comp_inter_places_autorisees) as INTEGER) + CAST(NULLTOZERO(ce.total_accueil_de_jour_places_autorisees) as INTEGER) + CAST(NULLTOZERO(ce.total_accueil_de_nuit_places_autorisees) as INTEGER)
-             ELSE CAST(ccta.somme_de_capacite_autorisee_totale as INTEGER)
+             ELSE CAST(ccta.somme_de_capacite_autorisee_totale_ as INTEGER)
             END as "Capacité totale autorisée",
 	     CAST(ce.total_heberg_comp_inter_places_autorisees as INTEGER) as "HP Total auto",
 	     CAST(ce.total_accueil_de_jour_places_autorisees as INTEGER) as "AJ Total auto",
 	     CAST(ce.total_accueil_de_nuit_places_autorisees as INTEGER) as "HT total auto",
-	     o1.taux_occ_"""+param_N_4+""" AS "Taux d'occupation """+param_N_4+"""",
-	     o2.taux_occ_"""+param_N_3+""" AS "Taux d'occupation """+param_N_3+"""",
+	     o1.taux_occ_"""+param_N_4+""" AS "Taux d'occupation """+param_N_3+"""",
+	     o2.taux_occ_"""+param_N_3+""" AS "Taux d'occupation """+param_N_2+"""",
 	     co3.taux_occ_"""+param_N_2+""" AS "Taux d'occupation """+param_N_2+"""",
 	     co3.nb_lits_occ_"""+param_N_2+""" as "Nombre de résidents au 31/12/"""+param_N_2+"""",
 	     etra.nombre_total_de_chambres_installees_au_3112 as "Nombre de places installées au 31/12/"""+param_N_2+"""",
@@ -613,11 +696,11 @@ def executeTransform(region):
 	     c_h.prixhebpermcs AS "Prix de journée hébergement (EHPAD uniquement)",
 	     ROUND(gp.gmp) as GMP,
 	     ROUND(gp.pmp) as PMP,
-	     etra.personnes_gir_1 AS "Part de résidents GIR 1 (31/12/"""+param_N_3+""")",
-	     etra.personnes_gir_2 AS "Part de résidents GIR 2 (31/12/"""+param_N_3+""")",
-	     etra.personnes_gir_3 AS "Part de résidents GIR 3 (31/12/"""+param_N_3+""")",
-	     CAST(REPLACE(taux_plus_10_medics_cip13, ",", ".") AS FLOAT) as "Part des résidents ayant plus de 10 médicaments consommés par mois",
-	     CAST(REPLACE(eira.taux_atu, ",", ".") AS FLOAT) as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
+	     etra.personnes_gir_1 AS "Part de résidents GIR 1 (31/12/"""+param_N_2+""")",
+	     etra.personnes_gir_2 AS "Part de résidents GIR 2 (31/12/"""+param_N_2+""")",
+	     etra.personnes_gir_3 AS "Part de résidents GIR 3 (31/12/"""+param_N_2+""")",
+	     ROUND(CAST(REPLACE(taux_plus_10_medics_cip13, ",", ".") AS FLOAT),2) as "Part des résidents ayant plus de 10 médicaments consommés par mois",
+	     ROUND(CAST(REPLACE(eira.taux_atu, ",", ".") AS FLOAT),2) as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
 	     --"" as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
 	     CAST(REPLACE(taux_hospit_mco, ",", ".") AS FLOAT) as "Taux de recours à l'hospitalisation MCO des résidents d'EHPAD",
 	     CAST(REPLACE(taux_hospit_had, ",", ".") AS FLOAT) as "Taux de recours à l'HAD des résidents d'EHPAD",
@@ -626,28 +709,28 @@ def executeTransform(region):
 	     ROUND(chpr."Produits du compte 70") AS "Produits du compte 70",
 	     ROUND(chpr."Total des produits (hors c/775, 777, 7781 et 78)") AS "Total des produits (hors c/775, 777, 7781 et 78)",
 	     "" as "Saisie des indicateurs du TDB MS (campagne """+param_N_2+""")",
-	     CAST(d2.taux_dabsenteisme_hors_formation_en_ as decmail) as "Taux d'absentéisme """+param_N_5+"""",
-	     etra2.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_4+"""",
-	     etra.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_3+"""",
-         ROUND(MOY3(d2.taux_dabsenteisme_hors_formation_en_ ,etra2.taux_dabsenteisme_hors_formation_en_ , etra.taux_dabsenteisme_hors_formation_en_) ,2) as "Absentéisme moyen sur la période """+param_N_5+"""-"""+param_N_3+"""",
-	     CAST(d2.taux_de_rotation_des_personnels as decimal) as "Taux de rotation du personnel titulaire """+param_N_5+"""",
-	     etra2.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_4+"""",
-	     etra.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_3+"""",
-	     ROUND(MOY3(d2.taux_de_rotation_des_personnels , etra2.taux_de_rotation_des_personnels , etra.taux_de_rotation_des_personnels), 2) as "Rotation moyenne du personnel sur la période """+param_N_5+"""-"""+param_N_3+"""",
-	     CAST(d2.taux_detp_vacants as decimal) as "ETP vacants """+param_N_5+"""",
-	     etra2.taux_detp_vacants as "ETP vacants """+param_N_4+"""",
-	     etra.taux_detp_vacants as "ETP vacants """+param_N_3+"""",
-	     etra.dont_taux_detp_vacants_concernant_la_fonction_soins as "dont fonctions soins """+param_N_3+"""",
-	     etra.dont_taux_detp_vacants_concernant_la_fonction_socio_educative as "dont fonctions socio-éducatives """+param_N_3+"""", 
-	     CAST(REPLACE(d3.taux_de_prestations_externes_sur_les_prestations_directes,',','.')as decimal) as "Taux de prestations externes sur les prestations directes """+param_N_5+"""",
-	     etra2.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes """+param_N_4+"""", 
-	     etra.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes """+param_N_3+"""",
-	     ROUND(MOY3(d3.taux_de_prestations_externes_sur_les_prestations_directes , etra2.taux_de_prestations_externes_sur_les_prestations_directes , etra.taux_de_prestations_externes_sur_les_prestations_directes) ,2) as "Taux moyen de prestations externes sur les prestations directes",
-	     ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_5+"""",
-         ROUND((etra2.etp_directionencadrement + etra2.etp_administration_gestion + etra2.etp_services_generaux + etra2.etp_restauration + etra2."etp_socio-educatif" + etra2.etp_paramedical + etra2.etp_psychologue + etra2.etp_ash + etra2.etp_medical + etra2.etp_personnel_education_nationale + etra2.etp_autres_fonctions)/etra2.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_4+"""",
-	     ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_3+"""",
-	     MOY3(ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , ROUND((etra2.etp_directionencadrement + etra2.etp_administration_gestion + etra2.etp_services_generaux + etra2.etp_restauration + etra2."etp_socio-educatif" + etra2.etp_paramedical + etra2.etp_psychologue + etra2.etp_ash + etra2.etp_medical + etra2.etp_personnel_education_nationale + etra2.etp_autres_fonctions)/etra2.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2))AS "Nombre moyen d'ETP par usager sur la période 2018-"""+param_N_4+"""",
-	     ROUND((etra.etp_paramedical + etra.etp_medical)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "ETP 'soins' par usager en """+param_N_3+"""",
+	     CAST(d2.taux_dabsenteisme_hors_formation_en_ as decmail) as "Taux d'absentéisme """+param_N_4+"""",
+	     etra2."Taux d'absentéisme (hors formation) en %"     as "Taux d'absentéisme """+param_N_3+"""",
+	     etra.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_2+"""",
+         ROUND(MOY3(d2.taux_dabsenteisme_hors_formation_en_ ,etra2."Taux d'absentéisme (hors formation) en %"     , etra.taux_dabsenteisme_hors_formation_en_) ,2) as "Absentéisme moyen sur la période """+param_N_4+"""-"""+param_N_2+"""",
+	     CAST(d2.taux_de_rotation_des_personnels as decimal) as "Taux de rotation du personnel titulaire """+param_N_4+"""",
+	     etra2."Taux de rotation des personnels" as "Taux de rotation du personnel titulaire """+param_N_3+"""",
+	     etra.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_2+"""",
+	     ROUND(MOY3(d2.taux_de_rotation_des_personnels , etra2."Taux de rotation des personnels" , etra.taux_de_rotation_des_personnels), 2) as "Rotation moyenne du personnel sur la période """+param_N_4+"""-"""+param_N_2+"""",
+	     CAST(d2.taux_detp_vacants as decimal) as "ETP vacants """+param_N_4+"""",
+	     etra2."Taux d'ETP vacants"  as "ETP vacants """+param_N_3+"""",
+	     etra.taux_detp_vacants as "ETP vacants """+param_N_2+"""",
+	     etra.dont_taux_detp_vacants_concernant_la_fonction_soins as "dont fonctions soins """+param_N_2+"""",
+	     etra.dont_taux_detp_vacants_concernant_la_fonction_socio_educative as "dont fonctions socio-éducatives """+param_N_2+"""", 
+	     CAST(REPLACE(d3.taux_de_prestations_externes_sur_les_prestations_directes,',','.')as decimal) as "Taux de prestations externes sur les prestations directes """+param_N_4+"""",
+	     etra2."Taux de prestations externes sur les prestations directes" as "Taux de prestations externes sur les prestations directes """+param_N_3+"""", 
+	     etra.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes """+param_N_2+"""",
+	     ROUND(MOY3(d3.taux_de_prestations_externes_sur_les_prestations_directes , etra2."Taux de prestations externes sur les prestations directes" , etra.taux_de_prestations_externes_sur_les_prestations_directes) ,2) as "Taux moyen de prestations externes sur les prestations directes",
+	     ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_4+"""",
+         ROUND((etra2."ETP Direction/Encadrement" + etra2."ETP Administration /Gestion" + etra2."ETP Services généraux" + etra2."ETP Restauration" + etra2."ETP Socio-éducatif" + etra2."ETP Paramédical" + etra2."ETP Psychologue" + etra2."ETP ASH" + etra2."ETP Médical" + etra2."ETP Personnel Education nationale"  + etra2."ETP Autres fonctions" )/etra2."Nombre de personnes accompagnées dans l'effectif au 31.12" , 2) as "Nombre total d'ETP par usager en """+param_N_3+"""",
+	     ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_2+"""",
+	     MOY3(ROUND(ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , ROUND((etra2."ETP Direction/Encadrement" + etra2."ETP Administration /Gestion" + etra2."ETP Services généraux" + etra2."ETP Restauration" + etra2."ETP Socio-éducatif" + etra2."ETP Paramédical" + etra2."ETP Psychologue" + etra2."ETP ASH" + etra2."ETP Médical" + etra2."ETP Personnel Education nationale"  + etra2."ETP Autres fonctions" )/etra2."Nombre de personnes accompagnées dans l'effectif au 31.12" , 2) , ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2),2))AS "Nombre moyen d'ETP par usager sur la période """+param_N_4+"""-"""+param_N_2+"""",
+	     ROUND((etra.etp_paramedical + etra.etp_medical)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "ETP 'soins' par usager en """+param_N_2+"""",
 	     etra.etp_directionencadrement AS "Direction / Encadrement",
 	     etra."-_dont_nombre_detp_reels_de_personnel_medical_dencadrement" AS "dont personnel médical d'encadrement",
 	     etra."-_dont_autre_directionencadrement" AS "dont autre Direction / Encadrement",
@@ -673,13 +756,13 @@ def executeTransform(region):
 	     etra.etp_psychologue AS "Psychologue",
 	     etra.etp_ash AS "ASH",
 	     etra.etp_medical AS "Médical",
-	     ROUND(etra."-_dont_nombre_detp_reels_de_medecin_coordonnateur", 2) as "dont médecin coordonnateur",
+	     etra."-_dont_nombre_detp_reels_de_medecin_coordonnateur" as "dont médecin coordonnateur",
 	     etra."-_dont_autre_medical" AS "dont autre médical",
 	     etra.etp_personnel_education_nationale AS "Personnel éducation nationale",
 	     etra.etp_autres_fonctions AS "Autres fonctions",
 	     ROUND(etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions, 2) as "Total du nombre d'ETP",
-	     NULLTOZERO(rs.nb_recla) as "Nombre de réclamations sur la période 2018-"""+param_N_2+"""",
-	     NULLTOZERO(ROUND(CAST(rs.nb_recla AS FLOAT) / CAST(ccta.somme_de_capacite_autorisee_totale AS FLOAT), 4)*100) as "Rapport réclamations / capacité",
+	     NULLTOZERO(rs.nb_recla) as "Nombre de réclamations sur la période"""+param_N_4+"""-"""+param_N_2+"""",
+	     NULLTOZERO(ROUND(CAST(rs.nb_recla AS FLOAT) / CAST(ccta.somme_de_capacite_autorisee_totale_ AS FLOAT), 4)*100) as "Rapport réclamations / capacité",
 	     NULLTOZERO(rs."Hôtellerie-locaux-restauration") as "Recla IGAS : Hôtellerie-locaux-restauration",
 	     NULLTOZERO(rs."Problème d?organisation ou de fonctionnement de l?établissement ou du service") as "Recla IGAS : Problème d’organisation ou de fonctionnement de l’établissement ou du service",
 	     NULLTOZERO(rs."Problème de qualité des soins médicaux") as "Recla IGAS : Problème de qualité des soins médicaux",
@@ -690,11 +773,11 @@ def executeTransform(region):
 	     NULLTOZERO(rs."Facturation et honoraires") as "Recla IGAS : Facturation et honoraires",
 	     NULLTOZERO(rs."Santé-environnementale") as "Recla IGAS : Santé-environnementale",
 	     NULLTOZERO(rs."Activités d?esthétique réglementées") as "Recla IGAS : Activités d’esthétique réglementées",
-	     NULLTOZERO(rs.nb_signa) as "Nombre de Signalement sur la période """+param_N_4+"""-"""+param_N_1+"""",
-	     NULLTOZERO(i."ICE """+param_N_2+""" (réalisé)") as "ICE """+param_N_2+""" (réalisé)",
-	     NULLTOZERO(i."Inspection SUR SITE """+param_N_2+""" - Déjà réalisée") as "Inspection SUR SITE """+param_N_2+""" - Déjà réalisée",
-	     NULLTOZERO(i."Controle SUR PIECE """+param_N_2+""" - Déjà réalisé") as "Controle SUR PIECE """+param_N_2+""" - Déjà réalisé",
-	     NULLTOZERO(i."Inspection / contrôle Programmé """+param_N_1+"""") as "Inspection / contrôle Programmé """+param_N_1+"""" 
+	     NULLTOZERO(rs.nb_signa) as "Nombre de Signalement sur la période """+param_N_3+"""-"""+param_N_1+"""",
+	     NULLTOZERO(i.'ICE """+param_N_2+""" (réalisé)') as 'ICE """+param_N_2+""" (réalisé)',
+	     NULLTOZERO(i.'Inspection SUR SITE """+param_N_2+"""- Déjà réalisée') as 'Inspection SUR SITE """+param_N_2+""" - Déjà réalisée',
+	     NULLTOZERO(i.'Controle SUR PIECE """+param_N_2+"""- Déjà réalisé') as 'Controle SUR PIECE """+param_N_2+""" - Déjà réalisé',
+	     NULLTOZERO(i.'Inspection / contrôle Programmé """+param_N_1+"""') as 'Inspection / contrôle Programmé """+param_N_1+"""'
          FROM
 	     tfiness_clean tf 
 	     LEFT JOIN communes c on c.com = tf.com_code
@@ -703,19 +786,19 @@ def executeTransform(region):
 	     LEFT JOIN capacites_ehpad ce on ce."et-ndegfiness" = tf.finess
 	     LEFT JOIN clean_capacite_totale_auto ccta on ccta.finess = tf.finess
 	     LEFT JOIN occupation_"""+param_N_5+"""_"""+param_N_4+""" o1 on o1.finess_19 = tf.finess
-	     LEFT JOIN occupation_"""+param_N_1+""" o2  on o2.finess = tf.finess
+	     LEFT JOIN occupation_"""+param_N_3+""" o2  on o2.finess = tf.finess
 	     LEFT JOIN clean_occupation_N_2 co3  on co3.finess = tf.finess
 	     LEFT JOIN clean_tdb_n_2 etra on etra.finess = tf.finess
 	     LEFT JOIN clean_hebergement c_h on c_h.finess = tf.finess
 	     LEFT JOIN gmp_pmp gp on IIF(LENGTH(gp.finess_et) = 8, '0'|| gp.finess_et, gp.finess_et) = tf.finess
 	     LEFT JOIN charges_produits chpr on chpr.finess = tf.finess
-	     LEFT JOIN EHPAD_Indicateurs_"""+param_N_1+"""_REG_agg eira.taux_atu on eira.et_finess = tf.finess
+	     LEFT JOIN EHPAD_Indicateurs_"""+param_N_3+"""_REG_agg eira on eira.et_finess = tf.finess
 	     LEFT JOIN clean_tdb_n_4 d2 on SUBSTRING(d2.finess,1,9) = tf.finess
 	     LEFT JOIN clean_tdb_n_3 etra2 on etra2.finess = tf.finess
-	     LEFT JOIN clean_tdb_n_3 d3 on SUBSTRING(d3.finess,1,9) = tf.finess
+	     LEFT JOIN clean_tdb_n_4 d3 on SUBSTRING(d3.finess,1,9) = tf.finess
 	     LEFT JOIN recla_signalement rs on rs.finess = tf.finess
 	     LEFT JOIN inspections i on i.finess = tf.finess
-         WHERE r.reg = '{}'
+         WHERE r.reg = """+str(region)+"""
          ORDER BY tf.finess ASC"""
         cursor.execute(df_controle,(region,))
         res=cursor.fetchall()
@@ -728,7 +811,6 @@ def executeTransform(region):
            print('Exécution requête ciblage')
            df_ciblage = f"""
         SELECT 
-      #identfication de l'établissement
 	    r.ncc as Region,
 	    d.dep as "Code dép",
 	    d.ncc AS "Département",
@@ -745,7 +827,7 @@ def executeTransform(region):
 	    CASE
            WHEN tf.categ_code = 500
             THEN CAST(NULLTOZERO(ce.total_heberg_comp_inter_places_autorisees) as INTEGER) + CAST(NULLTOZERO(ce.total_accueil_de_jour_places_autorisees) as INTEGER) + CAST(NULLTOZERO(ce.total_accueil_de_nuit_places_autorisees) as INTEGER)
-            ELSE CAST(ccta.somme_de_capacite_autorisee_totale as INTEGER)
+            ELSE CAST(ccta.somme_de_capacite_autorisee_totale_ as INTEGER)
         END as "Capacité totale autorisée",
 	    CAST(ce.total_heberg_comp_inter_places_autorisees as INTEGER) as "HP Total auto",
 	    CAST(ce.total_accueil_de_jour_places_autorisees as INTEGER) as "AJ Total auto",
@@ -754,43 +836,42 @@ def executeTransform(region):
 	    etra.nombre_total_de_chambres_installees_au_3112 as "Nombre de places installées au 31/12/"""+param_N_2+"""",
 	    ROUND(gp.gmp) as GMP,
 	    ROUND(gp.pmp) as PMP,
-	    CAST(REPLACE(taux_plus_10_medics_cip13, ",", ".") AS FLOAT) as "Part des résidents ayant plus de 10 médicaments consommés par mois",
-	    CAST(REPLACE(eira.taux_atu, ",", ".") AS FLOAT) as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
-	    --"" as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
-	    CAST(REPLACE(taux_hospit_mco, ",", ".") AS FLOAT) as "Taux de recours à l'hospitalisation MCO des résidents d'EHPAD",
-	    CAST(REPLACE(taux_hospit_had, ",", ".") AS FLOAT) as "Taux de recours à l'HAD des résidents d'EHPAD",
+	    ROUND(CAST(REPLACE(taux_plus_10_medics_cip13, ",", ".") AS FLOAT),2) as "Part des résidents ayant plus de 10 médicaments consommés par mois",
+	    ROUND(CAST(REPLACE(eira.taux_atu, ",", ".") AS FLOAT),2) as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
+	    ROUND(CAST(REPLACE(taux_hospit_mco, ",", ".") AS FLOAT),2) as "Taux de recours à l'hospitalisation MCO des résidents d'EHPAD",
+	    ROUND(CAST(REPLACE(taux_hospit_had, ",", ".") AS FLOAT),2) as "Taux de recours à l'HAD des résidents d'EHPAD",
 	    ROUND(chpr."Total des charges") AS "Total des charges",
 	    ROUND(chpr."Produits de la tarification") AS "Produits de la tarification", 
 	    ROUND(chpr."Produits du compte 70") AS "Produits du compte 70",
 	    ROUND(chpr."Total des produits (hors c/775, 777, 7781 et 78)") AS "Total des produits (hors c/775, 777, 7781 et 78)",
 	    "" as "Saisie des indicateurs du TDB MS (campagne """+param_N_2+""")",
-	    CAST(d2.taux_dabsenteisme_hors_formation_en_ as decmail) as "Taux d'absentéisme """+param_N_5+"""",
-	    etra2.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_4+"""",
-	    etra.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_3+"""",
-        ROUND(MOY3(d2.taux_dabsenteisme_hors_formation_en_ ,etra2.taux_dabsenteisme_hors_formation_en_ , etra.taux_dabsenteisme_hors_formation_en_) ,2) as "Absentéisme moyen sur la période """+param_N_5+"""-"""+param_N_3+"""",
-	    CAST(d2.taux_de_rotation_des_personnels as decimal) as "Taux de rotation du personnel titulaire """+param_N_5+"""",
-	    etra2.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_4+"""",
-	    etra.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_5+"""",
-	    ROUND(MOY3(d2.taux_de_rotation_des_personnels , etra2.taux_de_rotation_des_personnels , etra.taux_de_rotation_des_personnels), 2) as "Rotation moyenne du personnel sur la période """+param_N_5+"""-"""+param_N_3+"""",
-	    CAST(d2.taux_detp_vacants as decimal) as "ETP vacants """+param_N_5+"""",
-	    etra2.taux_detp_vacants as "ETP vacants """+param_N_4+"""",
-	    etra.taux_detp_vacants as "ETP vacants """+param_N_3+"""",
-	    etra.dont_taux_detp_vacants_concernant_la_fonction_soins as "dont fonctions soins """+param_N_3+"""",
-	    etra.dont_taux_detp_vacants_concernant_la_fonction_socio_educative as "dont fonctions socio-éducatives """+param_N_3+"""", 
-	    CAST(REPLACE(d3.taux_de_prestations_externes_sur_les_prestations_directes,',','.')as decimal) as "Taux de prestations externes sur les prestations directes """+param_N_5+"""",
-	    etra2.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes """+param_N_4+"""", 
-	    etra.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes"""+param_N_3+"""",
-	    ROUND(MOY3(d3.taux_de_prestations_externes_sur_les_prestations_directes , etra2.taux_de_prestations_externes_sur_les_prestations_directes , etra.taux_de_prestations_externes_sur_les_prestations_directes) ,2) as "Taux moyen de prestations externes sur les prestations directes",
-	    ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_5+"""",
-        ROUND((etra2.etp_directionencadrement + etra2.etp_administration_gestion + etra2.etp_services_generaux + etra2.etp_restauration + etra2."etp_socio-educatif" + etra2.etp_paramedical + etra2.etp_psychologue + etra2.etp_ash + etra2.etp_medical + etra2.etp_personnel_education_nationale + etra2.etp_autres_fonctions)/etra2.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_4+"""",
-	    ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_3+"""",
-	    MOY3(ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , ROUND((etra2.etp_directionencadrement + etra2.etp_administration_gestion + etra2.etp_services_generaux + etra2.etp_restauration + etra2."etp_socio-educatif" + etra2.etp_paramedical + etra2.etp_psychologue + etra2.etp_ash + etra2.etp_medical + etra2.etp_personnel_education_nationale + etra2.etp_autres_fonctions)/etra2.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , 
-        ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2))AS "Nombre moyen d'ETP par usager sur la période 2018-"""+param_N_4+"""",
-	    ROUND((etra.etp_paramedical + etra.etp_medical)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "ETP 'soins' par usager en """+param_N_3+"""",
-	    ROUND(etra."-_dont_nombre_detp_reels_de_medecin_coordonnateur", 2) as "dont médecin coordonnateur",
+	    CAST(d2.taux_dabsenteisme_hors_formation_en_ as decmail) as "Taux d'absentéisme """+param_N_4+"""",
+	    etra2."Taux d'absentéisme (hors formation) en %"     as "Taux d'absentéisme """+param_N_3+"""",
+	    etra.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_2+"""",
+        ROUND(MOY3(d2.taux_dabsenteisme_hors_formation_en_ ,etra2."Taux d'absentéisme (hors formation) en %"    , etra.taux_dabsenteisme_hors_formation_en_) ,2) as "Absentéisme moyen sur la période """+param_N_4+"""-"""+param_N_2+"""",
+	    CAST(d2.taux_de_rotation_des_personnels as decimal) as "Taux de rotation du personnel titulaire """+param_N_4+"""",
+	    etra2."Taux de rotation des personnels" as "Taux de rotation du personnel titulaire """+param_N_3+"""",
+	    etra.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_2+"""",
+	    ROUND(MOY3(d2.taux_de_rotation_des_personnels , etra2."Taux de rotation des personnels" , etra.taux_de_rotation_des_personnels), 2) as "Rotation moyenne du personnel sur la période """+param_N_4+"""-"""+param_N_2+"""",
+	    CAST(d2.taux_detp_vacants as decimal) as "ETP vacants """+param_N_4+"""",
+	    etra2."Taux d'ETP vacants"  as "ETP vacants """+param_N_3+"""",
+	    etra.taux_detp_vacants as "ETP vacants """+param_N_2+"""",
+	    etra.dont_taux_detp_vacants_concernant_la_fonction_soins as "dont fonctions soins """+param_N_2+"""",
+	    etra.dont_taux_detp_vacants_concernant_la_fonction_socio_educative as "dont fonctions socio-éducatives """+param_N_2+"""", 
+	    CAST(REPLACE(d3.taux_de_prestations_externes_sur_les_prestations_directes,',','.')as decimal) as "Taux de prestations externes sur les prestations directes """+param_N_4+"""",
+	    etra2."Taux de prestations externes sur les prestations directes" as "Taux de prestations externes sur les prestations directes """+param_N_3+"""", 
+	    etra.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes"""+param_N_2+"""",
+	    ROUND(MOY3(d3.taux_de_prestations_externes_sur_les_prestations_directes , etra2."Taux de prestations externes sur les prestations directes" , etra.taux_de_prestations_externes_sur_les_prestations_directes) ,2) as "Taux moyen de prestations externes sur les prestations directes",
+	    ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_4+"""",
+        ROUND((etra2."ETP Direction/Encadrement" + etra2."ETP Administration /Gestion" + etra2."ETP Services généraux" + etra2."ETP Restauration" + etra2."ETP Socio-éducatif" + etra2."ETP Paramédical" + etra2."ETP Psychologue" + etra2."ETP ASH" + etra2."ETP Médical" + etra2."ETP Personnel Education nationale"  + etra2."ETP Autres fonctions" )/etra2."Nombre de personnes accompagnées dans l'effectif au 31.12" , 2) as "Nombre total d'ETP par usager en """+param_N_3+"""",
+	    ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_2+"""",
+	    ROUND(MOY3(ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , ROUND((etra2."ETP Direction/Encadrement" + etra2."ETP Administration /Gestion" + etra2."ETP Services généraux" + etra2."ETP Restauration" + etra2."ETP Socio-éducatif" + etra2."ETP Paramédical" + etra2."ETP Psychologue" + etra2."ETP ASH" + etra2."ETP Médical" + etra2."ETP Personnel Education nationale"  + etra2."ETP Autres fonctions" )/etra2."Nombre de personnes accompagnées dans l'effectif au 31.12" , 2) , 
+        ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2)),2)AS "Nombre moyen d'ETP par usager sur la période """+param_N_4+"""-"""+param_N_2+"""",
+	    ROUND((etra.etp_paramedical + etra.etp_medical)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "ETP 'soins' par usager en """+param_N_2+"""",
+	    etra."-_dont_nombre_detp_reels_de_medecin_coordonnateur" as "dont médecin coordonnateur",
 	    ROUND(etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions, 2) as "Total du nombre d'ETP",
-	    NULLTOZERO(rs.nb_recla) as "Nombre de réclamations sur la période 2018-"""+param_N_2+"""",
-	    NULLTOZERO(ROUND(CAST(rs.nb_recla AS FLOAT) / CAST(ccta.somme_de_capacite_autorisee_totale AS FLOAT), 4)*100) as "Rapport réclamations / capacité",
+	    NULLTOZERO(rs.nb_recla) as "Nombre de réclamations sur la période"""+param_N_4+"""-"""+param_N_2+"""",
+	    NULLTOZERO(ROUND(CAST(rs.nb_recla AS FLOAT) / CAST(ccta.somme_de_capacite_autorisee_totale_ AS FLOAT), 4)*100) as "Rapport réclamations / capacité",
 	    NULLTOZERO(rs."Hôtellerie-locaux-restauration") as "Recla IGAS : Hôtellerie-locaux-restauration",
 	    NULLTOZERO(rs."Problème d?organisation ou de fonctionnement de l?établissement ou du service") as "Recla IGAS : Problème d’organisation ou de fonctionnement de l’établissement ou du service",
 	    NULLTOZERO(rs."Problème de qualité des soins médicaux") as "Recla IGAS : Problème de qualité des soins médicaux",
@@ -801,13 +882,13 @@ def executeTransform(region):
 	    NULLTOZERO(rs."Facturation et honoraires") as "Recla IGAS : Facturation et honoraires",
 	    NULLTOZERO(rs."Santé-environnementale") as "Recla IGAS : Santé-environnementale",
 	    NULLTOZERO(rs."Activités d?esthétique réglementées") as "Recla IGAS : Activités d’esthétique réglementées",
-	    NULLTOZERO(rs.NB_EIGS) as "Nombre d'EIG sur la période """+param_N_4+"""-"""+param_N+"""",
-	    NULLTOZERO(rs.NB_EIAS) as "Nombre d'EIAS sur la période """+param_N_4+"""-"""+param_N+"""",
-	    NULLTOZERO(rs."Nombre d'EI sur la période 36mois") + NULLTOZERO(rs.NB_EIGS) + NULLTOZERO(rs.NB_EIAS) as "Somme EI + EIGS + EIAS sur la période """+param_N_4+"""-"""+param_N_1+"""",
-	    NULLTOZERO(i."ICE """+param_N_2+"""  (réalisé)") as "ICE """+param_N_2+""" (réalisé)",
-	    NULLTOZERO(i."Inspection SUR SITE """+param_N_2+"""  - Déjà réalisée") as "Inspection SUR SITE """+param_N_2+"""  - Déjà réalisée",
-	    NULLTOZERO(i."Controle SUR PIECE """+param_N_2+"""  - Déjà réalisé") as "Controle SUR PIECE """+param_N_2+"""  - Déjà réalisé",
-	    NULLTOZERO(i."Inspection / contrôle Programmé """+param_N+""" ") as "Inspection / contrôle Programmé """+param_N+""" "
+	    NULLTOZERO(rs.NB_EIGS) as "Nombre d'EIG sur la période """+param_N_3+"""-"""+param_N_1+"""",
+	    NULLTOZERO(rs.NB_EIAS) as "Nombre d'EIAS sur la période """+param_N_3+"""-"""+param_N_1+"""",
+	    NULLTOZERO(rs."Nombre d'EI sur la période 36mois") + NULLTOZERO(rs.NB_EIGS) + NULLTOZERO(rs.NB_EIAS) as "Somme EI + EIGS + EIAS sur la période """+param_N_3+"""-"""+param_N_1+"""",
+	    NULLTOZERO(i.'ICE """+param_N_2+""" (réalisé)') as 'ICE """+param_N_2+""" (réalisé)',
+	    NULLTOZERO(i.'Inspection SUR SITE """+param_N_2+"""- Déjà réalisée') as 'Inspection SUR SITE """+param_N_2+""" - Déjà réalisée',
+	    NULLTOZERO(i.'Controle SUR PIECE """+param_N_2+"""- Déjà réalisé') as 'Controle SUR PIECE """+param_N_2+""" - Déjà réalisé',
+	    NULLTOZERO(i.'Inspection / contrôle Programmé """+param_N_1+"""') as 'Inspection / contrôle Programmé """+param_N_1+"""'
         FROM
 	    tfiness_clean tf 
 	    LEFT JOIN communes c on c.com = tf.com_code
@@ -815,22 +896,22 @@ def executeTransform(region):
 	    LEFT JOIN region_"""+param_N_2+""" r on d.reg = r.reg
 	    LEFT JOIN capacites_ehpad ce on ce."et-ndegfiness" = tf.finess
 	    LEFT JOIN clean_capacite_totale_auto ccta on ccta.finess = tf.finess
-	    LEFT JOIN occupation_"""+param_N_5+""" _"""+param_N_4+"""  o1 on o1.finess_19 = tf.finess
+	    LEFT JOIN occupation_"""+param_N_5+"""_"""+param_N_4+"""  o1 on o1.finess_19 = tf.finess
 	    LEFT JOIN occupation_"""+param_N_3+"""  o2  on o2.finess = tf.finess
 	    LEFT JOIN clean_occupation_N_2  co3  on co3.finess = tf.finess
 	    LEFT JOIN clean_tdb_n_2  etra on etra.finess = tf.finess
 	    LEFT JOIN clean_hebergement c_h on c_h.finess = tf.finess
 	    LEFT JOIN gmp_pmp gp on IIF(LENGTH(gp.finess_et) = 8, '0'|| gp.finess_et, gp.finess_et) = tf.finess
 	    LEFT JOIN charges_produits chpr on chpr.finess = tf.finess
-	    LEFT JOIN EHPAD_Indicateurs_"""+param_N_3+""" _REG_agg eira on eira.et_finess = tf.finess
+	    LEFT JOIN EHPAD_Indicateurs_"""+param_N_3+"""_REG_agg eira on eira.et_finess = tf.finess
 	    LEFT JOIN clean_tdb_n_4  d2 on SUBSTRING(d2.finess,1,9) = tf.finess
 	    LEFT JOIN clean_tdb_n_3  etra2 on etra2.finess = tf.finess
 	    LEFT JOIN clean_tdb_n_4 d3 on SUBSTRING(d3.finess,1,9) = tf.finess
 	    LEFT JOIN recla_signalement rs on rs.finess = tf.finess
 	    LEFT JOIN inspections i on i.finess = tf.finess
-        WHERE r.reg ='{}'
+        WHERE r.reg ='"""+str(region)+"""'
         ORDER BY tf.finess ASC"""
-    cursor.execute(df_ciblage,(region,))
+    cursor.execute(df_ciblage)
     res=cursor.fetchall()
     columns = [col[0] for col in cursor.description]
     df_ciblage=pd.DataFrame(res,columns=columns)
@@ -838,12 +919,11 @@ def executeTransform(region):
     # Exécution requête controle
     print('Exécution requête controle')
     df_controle = f"""
-        SELECT 
-    --identfication de l'établissement
+    SELECT 
 	r.ncc as Region,
 	d.dep as "Code dép",
 	d.ncc AS "Département",
-	tf.categ_lib as Catégorie,
+	tf.categ_lib as "Catégorie",
     tf.finess as "FINESS géographique",
 	tf.rs as "Raison sociale ET",
 	tf.ej_finess as "FINESS juridique",
@@ -853,17 +933,16 @@ def executeTransform(region):
 	IIF(LENGTH(tf.adresse_code_postal) = 4, '0'|| tf.adresse_code_postal, tf.adresse_code_postal) AS "Code postal",
 	c.NCC AS "Commune",
 	IIF(LENGTH(tf.com_code) = 4, '0'|| tf.com_code, tf.com_code) AS "Code commune INSEE",
-	--	caractéristiques ESMS
 	CASE
         WHEN tf.categ_code = 500
             THEN CAST(NULLTOZERO(ce.total_heberg_comp_inter_places_autorisees) as INTEGER) + CAST(NULLTOZERO(ce.total_accueil_de_jour_places_autorisees) as INTEGER) + CAST(NULLTOZERO(ce.total_accueil_de_nuit_places_autorisees) as INTEGER)
-        ELSE CAST(ccta.somme_de_capacite_autorisee_totale as INTEGER)
+        ELSE CAST(ccta.somme_de_capacite_autorisee_totale_ as INTEGER)
     END as "Capacité totale autorisée",
 	CAST(ce.total_heberg_comp_inter_places_autorisees as INTEGER) as "HP Total auto",
 	CAST(ce.total_accueil_de_jour_places_autorisees as INTEGER) as "AJ Total auto",
 	CAST(ce.total_accueil_de_nuit_places_autorisees as INTEGER) as "HT total auto",
-	o1.taux_occ_"""+param_N_4+"""  AS "Taux d'occupation """+param_N_4+""" ",
-	o2.taux_occ_"""+param_N_3+"""  AS "Taux d'occupation """+param_N_3+""" ",
+	o1.taux_occ_"""+param_N_4+"""  AS "Taux d'occupation """+param_N_3+""" ",
+	o2.taux_occ_"""+param_N_3+"""  AS "Taux d'occupation """+param_N_2+""" ",
 	co3.taux_occ_"""+param_N_2+"""  AS "Taux d'occupation """+param_N_2+""" ",
 	co3.nb_lits_occ_"""+param_N_2+"""  as "Nombre de résidents au 31/12/"""+param_N_2+""" ",
 	etra.nombre_total_de_chambres_installees_au_3112 as "Nombre de places installées au 31/12/"""+param_N_2+""" ",
@@ -871,41 +950,40 @@ def executeTransform(region):
 	c_h.prixhebpermcs AS "Prix de journée hébergement (EHPAD uniquement)",
 	ROUND(gp.gmp) as GMP,
 	ROUND(gp.pmp) as PMP,
-	etra.personnes_gir_1 AS "Part de résidents GIR 1 (31/12/"""+param_N_3+""" )",
-	etra.personnes_gir_2 AS "Part de résidents GIR 2 (31/12/"""+param_N_3+""" )",
-	etra.personnes_gir_3 AS "Part de résidents GIR 3 (31/12/"""+param_N_3+""" )",
-	CAST(REPLACE(taux_plus_10_medics_cip13, ",", ".") AS FLOAT) as "Part des résidents ayant plus de 10 médicaments consommés par mois",
-	CAST(REPLACE(eira.taux_atu, ",", ".") AS FLOAT) as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
-	--"" as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
-	CAST(REPLACE(taux_hospit_mco, ",", ".") AS FLOAT) as "Taux de recours à l'hospitalisation MCO des résidents d'EHPAD",
-	CAST(REPLACE(taux_hospit_had, ",", ".") AS FLOAT) as "Taux de recours à l'HAD des résidents d'EHPAD",
+	etra.personnes_gir_1 AS "Part de résidents GIR 1 (31/12/"""+param_N_2+""" )",
+	etra.personnes_gir_2 AS "Part de résidents GIR 2 (31/12/"""+param_N_2+""" )",
+	etra.personnes_gir_3 AS "Part de résidents GIR 3 (31/12/"""+param_N_2+""" )",
+	ROUND(CAST(REPLACE(taux_plus_10_medics_cip13, ",", ".") AS FLOAT),2) as "Part des résidents ayant plus de 10 médicaments consommés par mois",
+	ROUND(CAST(REPLACE(eira.taux_atu, ",", ".") AS FLOAT),2) as "Taux de recours aux urgences sans hospitalisation des résidents d'EHPAD",
+	ROUND(CAST(REPLACE(taux_hospit_mco, ",", ".") AS FLOAT),2) as "Taux de recours à l'hospitalisation MCO des résidents d'EHPAD",
+	ROUND(CAST(REPLACE(taux_hospit_had, ",", ".") AS FLOAT),2) as "Taux de recours à l'HAD des résidents d'EHPAD",
 	ROUND(chpr."Total des charges") AS "Total des charges",
 	ROUND(chpr."Produits de la tarification") AS "Produits de la tarification", 
 	ROUND(chpr."Produits du compte 70") AS "Produits du compte 70",
 	ROUND(chpr."Total des produits (hors c/775, 777, 7781 et 78)") AS "Total des produits (hors c/775, 777, 7781 et 78)",
 	"" as "Saisie des indicateurs du TDB MS (campagne """+param_N_2+""" )",
-	CAST(d2.taux_dabsenteisme_hors_formation_en_ as decmail) as "Taux d'absentéisme """+param_N_5+""" ",
-	etra2.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_4+""" ",
-	etra.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_3+""" ",
-    ROUND(MOY3(d2.taux_dabsenteisme_hors_formation_en_ ,etra2.taux_dabsenteisme_hors_formation_en_ , etra.taux_dabsenteisme_hors_formation_en_) ,2) as "Absentéisme moyen sur la période """+param_N_5+""" -"""+param_N_3+""" ",
-	CAST(d2.taux_de_rotation_des_personnels as decimal) as "Taux de rotation du personnel titulaire """+param_N_5+""" ",
-	etra2.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_4+""" ",
-	etra.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_3+""" ",
-	ROUND(MOY3(d2.taux_de_rotation_des_personnels , etra2.taux_de_rotation_des_personnels , etra.taux_de_rotation_des_personnels), 2) as "Rotation moyenne du personnel sur la période """+param_N_5+""" -"""+param_N_3+""" ",
-	CAST(d2.taux_detp_vacants as decimal) as "ETP vacants """+param_N_5+""" ",
-	etra2.taux_detp_vacants as "ETP vacants """+param_N_4+""" ",
-	etra.taux_detp_vacants as "ETP vacants """+param_N_3+""" ",
-	etra.dont_taux_detp_vacants_concernant_la_fonction_soins as "dont fonctions soins """+param_N_3+""" ",
-	etra.dont_taux_detp_vacants_concernant_la_fonctionB _socio_educative as "dont fonctions socio-éducatives """+param_N_3+""" ", 
-	CAST(REPLACE(d3.taux_de_prestations_externes_sur_les_prestations_directes,',','.')as decimal) as "Taux de prestations externes sur les prestations directes """+param_N_5+""" ",
-	etra2.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes """+param_N_4+""" ", 
-	etra.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes """+param_N_3+""" ",
-	ROUND(MOY3(d3.taux_de_prestations_externes_sur_les_prestations_directes , etra2.taux_de_prestations_externes_sur_les_prestations_directes , etra.taux_de_prestations_externes_sur_les_prestations_directes) ,2) as "Taux moyen de prestations externes sur les prestations directes",
-	ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_5+""" ",
-    ROUND((etra2.etp_directionencadrement + etra2.etp_administration_gestion + etra2.etp_services_generaux + etra2.etp_restauration + etra2."etp_socio-educatif" + etra2.etp_paramedical + etra2.etp_psychologue + etra2.etp_ash + etra2.etp_medical + etra2.etp_personnel_education_nationale + etra2.etp_autres_fonctions)/etra2.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_4+""" ",
-	ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_3+""" ",
-	MOY3(ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , ROUND((etra2.etp_directionencadrement + etra2.etp_administration_gestion + etra2.etp_services_generaux + etra2.etp_restauration + etra2."etp_socio-educatif" + etra2.etp_paramedical + etra2.etp_psychologue + etra2.etp_ash + etra2.etp_medical + etra2.etp_personnel_education_nationale + etra2.etp_autres_fonctions)/etra2.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2))AS "Nombre moyen d'ETP par usager sur la période 2018-"""+param_N_4+""" ",
-	ROUND((etra.etp_paramedical + etra.etp_medical)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "ETP 'soins' par usager en """+param_N_3+""" ",
+	CAST(d2.taux_dabsenteisme_hors_formation_en_ as decimal) as "Taux d'absentéisme """+param_N_4+""" ",
+	etra2."Taux d'absentéisme (hors formation) en %"    as "Taux d'absentéisme """+param_N_3+""" ",
+	etra.taux_dabsenteisme_hors_formation_en_ as "Taux d'absentéisme """+param_N_2+""" ",
+    ROUND(MOY3(d2.taux_dabsenteisme_hors_formation_en_ ,etra2."Taux d'absentéisme (hors formation) en %"    , etra.taux_dabsenteisme_hors_formation_en_) ,2) as "Absentéisme moyen sur la période """+param_N_4+""" -"""+param_N_2+""" ",
+	CAST(d2.taux_de_rotation_des_personnels as decimal) as "Taux de rotation du personnel titulaire """+param_N_4+""" ",
+	etra2."Taux de rotation des personnels" as "Taux de rotation du personnel titulaire """+param_N_3+""" ",
+	etra.taux_de_rotation_des_personnels as "Taux de rotation du personnel titulaire """+param_N_2+""" ",
+	ROUND(MOY3(d2.taux_de_rotation_des_personnels , etra2."Taux de rotation des personnels" , etra.taux_de_rotation_des_personnels), 2) as "Rotation moyenne du personnel sur la période """+param_N_4+""" -"""+param_N_2+""" ",
+	CAST(d2.taux_detp_vacants as decimal) as "ETP vacants """+param_N_4+""" ",
+	etra2."Taux d'ETP vacants"  as "ETP vacants """+param_N_3+""" ",
+	etra.taux_detp_vacants as "ETP vacants """+param_N_2+""" ",
+	etra.dont_taux_detp_vacants_concernant_la_fonction_soins as "dont fonctions soins """+param_N_2+""" ",
+	etra.dont_taux_detp_vacants_concernant_la_fonction_socio_educative as "dont fonctions socio-éducatives """+param_N_2+""" ", 
+	CAST(REPLACE(d3.taux_de_prestations_externes_sur_les_prestations_directes,',','.')as decimal) as "Taux de prestations externes sur les prestations directes """+param_N_4+""" ",
+	etra2."Taux de prestations externes sur les prestations directes" as "Taux de prestations externes sur les prestations directes """+param_N_3+""" ", 
+	etra.taux_de_prestations_externes_sur_les_prestations_directes as "Taux de prestations externes sur les prestations directes """+param_N_2+""" ",
+	ROUND(MOY3(d3.taux_de_prestations_externes_sur_les_prestations_directes , etra2."Taux de prestations externes sur les prestations directes" , etra.taux_de_prestations_externes_sur_les_prestations_directes) ,2) as "Taux moyen de prestations externes sur les prestations directes",
+	ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_4+""" ",
+    ROUND((etra2."ETP Direction/Encadrement" + etra2."ETP Administration /Gestion" + etra2."ETP Services généraux" + etra2."ETP Restauration" + etra2."ETP Socio-éducatif" + etra2."ETP Paramédical" + etra2."ETP Psychologue" + etra2."ETP ASH" + etra2."ETP Médical" + etra2."ETP Personnel Education nationale"  + etra2."ETP Autres fonctions" )/etra2."Nombre de personnes accompagnées dans l'effectif au 31.12" , 2) as "Nombre total d'ETP par usager en """+param_N_3+""" ",
+	ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "Nombre total d'ETP par usager en """+param_N_2+""" ",
+	ROUND(MOY3(ROUND((d3.etp_directionencadrement + d3.etp_administration_gestion + d3.etp_services_generaux + d3.etp_restauration + d3."etp_socio-educatif" + d3.etp_paramedical + d3.etp_psychologue + d3.etp_ash + d3.etp_medical + d3.etp_personnel_education_nationale + d3.etp_autres_fonctions)/d3.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) , ROUND((etra2."ETP Direction/Encadrement" + etra2."ETP Administration /Gestion" + etra2."ETP Services généraux" + etra2."ETP Restauration" + etra2."ETP Socio-éducatif" + etra2."ETP Paramédical" + etra2."ETP Psychologue" + etra2."ETP ASH" + etra2."ETP Médical" + etra2."ETP Personnel Education nationale"  + etra2."ETP Autres fonctions" )/etra2."Nombre de personnes accompagnées dans l'effectif au 31.12" , 2) , ROUND((etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2)),2)AS "Nombre moyen d'ETP par usager sur la période """+param_N_4+"""-"""+param_N_2+""" ",
+	ROUND((etra.etp_paramedical + etra.etp_medical)/etra.nombre_de_personnes_accompagnees_dans_leffectif_au_3112, 2) as "ETP 'soins' par usager en """+param_N_2+""" ",
 	etra.etp_directionencadrement AS "Direction / Encadrement",
 	etra."-_dont_nombre_detp_reels_de_personnel_medical_dencadrement" AS "dont personnel médical d'encadrement",
 	etra."-_dont_autre_directionencadrement" AS "dont autre Direction / Encadrement",
@@ -931,13 +1009,13 @@ def executeTransform(region):
 	etra.etp_psychologue AS "Psychologue",
 	etra.etp_ash AS "ASH",
 	etra.etp_medical AS "Médical",
-	ROUND(etra."-_dont_nombre_detp_reels_de_medecin_coordonnateur", 2) as "dont médecin coordonnateur",
+	etra."-_dont_nombre_detp_reels_de_medecin_coordonnateur" as "dont médecin coordonnateur",
 	etra."-_dont_autre_medical" AS "dont autre médical",
 	etra.etp_personnel_education_nationale AS "Personnel éducation nationale",
 	etra.etp_autres_fonctions AS "Autres fonctions",
 	ROUND(etra.etp_directionencadrement + etra.etp_administration_gestion + etra.etp_services_generaux + etra.etp_restauration + etra."etp_socio-educatif" + etra.etp_paramedical + etra.etp_psychologue + etra.etp_ash + etra.etp_medical + etra.etp_personnel_education_nationale + etra.etp_autres_fonctions, 2) as "Total du nombre d'ETP",
 	NULLTOZERO(rs.nb_recla) as "Nombre de réclamations sur la période 2018-"""+param_N_2+""" ",
-	NULLTOZERO(ROUND(CAST(rs.nb_recla AS FLOAT) / CAST(ccta.somme_de_capacite_autorisee_totale AS FLOAT), 4)*100) as "Rapport réclamations / capacité",
+	NULLTOZERO(ROUND(CAST(rs.nb_recla AS FLOAT) / CAST(ccta.somme_de_capacite_autorisee_totale_ AS FLOAT), 4)*100) as "Rapport réclamations / capacité",
 	NULLTOZERO(rs."Hôtellerie-locaux-restauration") as "Recla IGAS : Hôtellerie-locaux-restauration",
 	NULLTOZERO(rs."Problème d?organisation ou de fonctionnement de l?établissement ou du service") as "Recla IGAS : Problème d’organisation ou de fonctionnement de l’établissement ou du service",
 	NULLTOZERO(rs."Problème de qualité des soins médicaux") as "Recla IGAS : Problème de qualité des soins médicaux",
@@ -949,9 +1027,9 @@ def executeTransform(region):
 	NULLTOZERO(rs."Santé-environnementale") as "Recla IGAS : Santé-environnementale",
 	NULLTOZERO(rs."Activités d?esthétique réglementées") as "Recla IGAS : Activités d’esthétique réglementées",
 	NULLTOZERO(rs."Nombre d'EI sur la période 36mois") as "Nombre d'EI sur la période 36mois",
-	NULLTOZERO(rs.NB_EIGS) as "Nombre d'EIG sur la période """+param_N_4+""" -"""+param_N+""" ",
-	NULLTOZERO(rs.NB_EIAS) as "Nombre d'EIAS sur la période """+param_N_4+""" -"""+param_N+""" ",
-	NULLTOZERO(rs."Nombre d'EI sur la période 36mois" + NULLTOZERO(rs.NB_EIGS) + NULLTOZERO(rs.NB_EIAS)) as "Somme EI + EIGS + EIAS sur la période """+param_N_4+""" -"""+param_N_1+"""",
+	NULLTOZERO(rs.NB_EIGS) as "Nombre d'EIG sur la période """+param_N_3+""" -"""+param_N_1+""" ",
+	NULLTOZERO(rs.NB_EIAS) as "Nombre d'EIAS sur la période """+param_N_3+""" -"""+param_N_1+""" ",
+	NULLTOZERO(rs."Nombre d'EI sur la période 36mois" + NULLTOZERO(rs.NB_EIGS) + NULLTOZERO(rs.NB_EIAS)) as "Somme EI + EIGS + EIAS sur la période """+param_N_3+""" -"""+param_N_1+"""",
 	NULLTOZERO(rs."nb EI/EIG : Acte de prévention") as "nb EI/EIG : Acte de prévention",
 	NULLTOZERO(rs."nb EI/EIG : Autre prise en charge") as "nb EI/EIG : Autre prise en charge",
 	NULLTOZERO(rs."nb EI/EIG : Chute") as "nb EI/EIG : Chute",
@@ -969,50 +1047,49 @@ def executeTransform(region):
 	NULLTOZERO(rs."nb EI/EIG : Prise en charge psychiatrique") as "nb EI/EIG : Prise en charge psychiatrique",
 	NULLTOZERO(rs."nb EI/EIG : Suicide") as "nb EI/EIG : Suicide",
 	NULLTOZERO(rs."nb EI/EIG : Tentative de suicide") as "nb EI/EIG : Tentative de suicide",
-	NULLTOZERO(i."ICE """+param_N_2+""" (réalisé)") as "ICE """+param_N_2+"""  (réalisé)",
-	NULLTOZERO(i."Inspection SUR SITE """+param_N_2+"""  - Déjà réalisée") as "Inspection SUR SITE """+param_N_2+"""  - Déjà réalisée",
-	NULLTOZERO(i."Controle SUR PIECE """+param_N_2+"""  - Déjà réalisé") as "Controle SUR PIECE """+param_N_2+"""  - Déjà réalisé",
-	NULLTOZERO(i."Inspection / contrôle Programmé """+param_N+""" ") as "Inspection / contrôle Programmé """+param_N+""" "
-FROM
- --identification
+	NULLTOZERO(i.'ICE """+param_N_2+""" (réalisé)') as 'ICE """+param_N_2+""" (réalisé)',
+	NULLTOZERO(i.'Inspection SUR SITE """+param_N_2+"""- Déjà réalisée') as 'Inspection SUR SITE """+param_N_2+""" - Déjà réalisée',
+	NULLTOZERO(i.'Controle SUR PIECE """+param_N_2+"""- Déjà réalisé') as 'Controle SUR PIECE """+param_N_2+""" - Déjà réalisé',
+	NULLTOZERO(i.'Inspection / contrôle Programmé """+param_N_1+"""') as 'Inspection / contrôle Programmé """+param_N_1+"""'
+    FROM
 	tfiness_clean tf 
 	LEFT JOIN communes c on c.com = tf.com_code
 	LEFT JOIN departement_"""+param_N_2+"""  d on d.dep = c.dep
 	LEFT JOIN region_"""+param_N_2+"""   r on d.reg = r.reg
 	LEFT JOIN capacites_ehpad ce on ce."et-ndegfiness" = tf.finess
 	LEFT JOIN clean_capacite_totale_auto ccta on ccta.finess = tf.finess
-	LEFT JOIN occupation_"""+param_N_5+""" _"""+param_N_4+"""  o1 on o1.finess_19 = tf.finess
+	LEFT JOIN occupation_"""+param_N_5+"""_"""+param_N_4+""" o1 on o1.finess_19 = tf.finess
 	LEFT JOIN occupation_"""+param_N_3+"""  o2  on o2.finess = tf.finess
 	LEFT JOIN clean_occupation_N_2  co3  on co3.finess = tf.finess
 	LEFT JOIN clean_tdb_n_2  etra on etra.finess = tf.finess
 	LEFT JOIN clean_hebergement c_h on c_h.finess = tf.finess
 	LEFT JOIN gmp_pmp gp on IIF(LENGTH(gp.finess_et) = 8, '0'|| gp.finess_et, gp.finess_et) = tf.finess
 	LEFT JOIN charges_produits chpr on chpr.finess = tf.finess
-	LEFT JOIN EHPAD_Indicateurs_"""+param_N_3+""" _REG_agg eira on eira.et_finess = tf.finess
+	LEFT JOIN EHPAD_Indicateurs_"""+param_N_3+"""_REG_agg eira on eira.et_finess = tf.finess
 	LEFT JOIN clean_tdb_n_4  d2 on SUBSTRING(d2.finess,1,9) = tf.finess
 	LEFT JOIN clean_tdb_n_3  etra2 on etra2.finess = tf.finess
 	LEFT JOIN clean_tdb_n_4 d3 on SUBSTRING(d3.finess,1,9) = tf.finess
 	LEFT JOIN recla_signalement rs on rs.finess = tf.finess
 	LEFT JOIN inspections i on i.finess = tf.finess
-    WHERE r.reg ='{}'
+    WHERE r.reg ='"""+str(region)+"""'
     ORDER BY tf.finess ASC"""
-    cursor.execute(df_controle,(region,))
+    cursor.execute(df_controle)
     res=cursor.fetchall()
     columns = [col[0] for col in cursor.description]
     df_controle=pd.DataFrame(res,columns=columns)  
     
+
     date_string = datetime.today().strftime('%d%m%Y') 
     path = 'data/output/{}_{}.xlsx'.format(outputName(region),date_string)
     # Create a Pandas Excel writer using XlsxWriter as the engine.
     writer = pd.ExcelWriter(path, engine='xlsxwriter')
-    df_ciblage.to_excel(writer, sheet_name='ciblage', index=False,header=True)
-    print(df_ciblage.columns.tolist())
-    df_controle.to_excel(writer, sheet_name='controle', index=False,header=True)
-    print(df_controle.columns.tolist())
+    df_ciblage.to_excel(writer, sheet_name='ciblage', index=False)
+    df_controle.to_excel(writer, sheet_name='controle', index=False)
     # Close the Pandas Excel writer and output the Excel file.
     writer.close()
     print('export créé : {}_{}.xlsx'.format(outputName(region),date_string))
-    return 
+    return
+
      # Definitions des functions utiles en SQL
 def nullToZero(value):
     if value is None:
@@ -1040,14 +1117,14 @@ def functionCreator():
 # Requete signalement et réclamation
 # Jointure des tables de t-finess + signalement
 def testNomRegion(region):
-    dbname = utils.read_settings('settings/settings.json',"db","name")
+    dbname = utils.read_settings('settings/settings_demo.json',"db","name")
     conn = connDb(dbname)
     test  ="""SELECT 'oui'
 	FROM region_{n} r 
-	WHERE r.ncc ='{}'
+	WHERE r.ncc = '{}'
    """.format(region)
     df = pd.read_sql_query(test, conn)
-    return df    # Fermer le curseur et la connexion
+    return df
  
 
 

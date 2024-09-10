@@ -1,16 +1,8 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Fev 20 14:38:45 2023
-
-@author: mathieu.olivier
-"""
-import pandas as pd
 import sqlite3
 import os
+import json
 
 
-# à déplacer dans modules/init_db/init_db.py
-### Partie Création de la DB et ajout des tables
 
 def checkIfDBExists(dbname):
     if os.path.exists(dbname + '.sqlite'):
@@ -18,62 +10,529 @@ def checkIfDBExists(dbname):
         print('Ancienne base de donnée écrasée')
 
 def initDb(dbname):
-    #Supprime l'ancienne base de donnée
     checkIfDBExists(dbname)
-    #Crée la nouvelle base de donnée
     conn = sqlite3.connect(dbname + '.sqlite')
-    conn
     print('Création de la base de donnée {}.sqlite '.format(dbname))
     return conn
 
 def connDb(dbname):
     conn = sqlite3.connect(dbname + '.sqlite')
-    conn
     return conn
 
-def importSrcData(df, table_name, conn, dbname):
-    df.to_sql(name=table_name, con=conn)
-    print('La table {} a été ajouté à la base de donnée {}'.format(table_name,dbname))
-    return 
+def importSrcData(df, table_name, conn):
+    df.to_sql(name=table_name, con=conn, if_exists='append', index=False)
+    print('La table {} a été ajoutée à la base de donnée'.format(table_name))
 
-'''
-Update section
-#Pour Update une table à partir d'un fichier
-# Ca ne marche pas pour l'instant 
-# En pause car pas nécessaire
+# Créer des tables avec les types spécifiés
+def createTablesWithTypes(conn,data):
+    cursor = conn.cursor()
+    with open('settings/settings.json') as f:
+        # Charger les données JSON depuis le fichier
+        data = json.load(f)
 
-def _updateTable(dbname, table_name, excelFilePath):
-    try:
-        sqliteConnection = sqlite3.connect(dbname+'.sqlite')
-        cursor = sqliteConnection.cursor()
-        print("Connected to {}".format(dbname))
+    
+    # Vérifier si la clé 'parametres' existe dans le JSON
+    if 'parametres' in data:
+        param_N = data['parametres'][0]['param_N']
+        param_N_1 = data['parametres'][0]['param_N_1']
+        param_N_2 = data['parametres'][0]['param_N_2']
+        param_N_3 = data['parametres'][0]['param_N_3']
+        param_N_4 = data['parametres'][0]['param_N_4']
+        param_N_5 = data['parametres'][0]['param_N_5']
+        param_fin_mois = data['parametres'][0]['param_fin_mois']
+        param_debut_mois = data['parametres'][0]['param_debut_mois']
+        param_debut_mois_N_3 = data['parametres'][0]['param_debut_mois_N_3']
+    else:
+        raise KeyError("La clé 'parametres' n'existe pas dans le fichier JSON")
 
-        #sql_drop_table = "DROP TABLE {}".format(table_name)
-        cursor.execute("DROP TABLE "+table_name)
-        sqliteConnection.commit()
-        print("Table {} dropped".format(table_name))
-        _importSrcData(
-            _cleanSrcData(
-                _csvReader(
-                    _convertXlsxToCsv(excelFilePath)
-                )
-            ),
-            table_name
-            )
-        print("Table {} Updated".format(table_name))
-        cursor.close()
+    EHPAD= f"""
+CREATE TABLE IF NOT EXISTS 'EHPAD_Indicateurs_"""+param_N_3+"""_REG_agg'(
+    annee_coupe_gmp REAL,
+    annee_coupe_pmp REAL,
+    categ_ehpad TEXT,
+    code_com REAL,
+    code_dep REAL,
+    code_reg INTEGER,
+    cout_ace TEXT,
+    cout_atu TEXT,
+    cout_autres_auxi TEXT,
+    cout_clinique TEXT,
+    cout_dentaire TEXT,
+    cout_hopital TEXT,
+    cout_inf TEXT,
+    cout_kine TEXT,
+    cout_labo TEXT,
+    cout_LPP TEXT,
+    cout_med_gene TEXT,
+    cout_medicaments TEXT,
+    cout_radiologie TEXT,
+    cout_spe TEXT,
+    cout_total TEXT,
+    cout_transports TEXT,
+    effectif_coupe REAL,
+    ej_finess TEXT,
+    ej_rs TEXT,
+    et_finess TEXT,
+    et_rs VARCHAR,
+    forfait_soins TEXT,
+    gmp REAL,
+    ide_eta_num REAL,
+    "index" INTEGER,
+    CPAM REAL,
+    lib_reg TEXT,
+    nb_med_traitants INTEGER,
+    nbre_res_"""+param_N_3+""" INTEGER,
+    p_smti TEXT,
+    pmp REAL,
+    poste_bio TEXT,
+    poste_imagerie TEXT,
+    poste_inf TEXT,
+    poste_medecin TEXT,
+    poste_pharma TEXT,
+    poste_psychiatre VARCHAR,
+    poste_psychother TEXT,
+    poste_reeduc TEXT,
+    taux_amoxi TEXT,
+    "taux_antidep_"""+param_N_5+"""" TEXT,
+    "taux_antidep__"""+param_N_4+"""" TEXT,
+    "taux_antidep__"""+param_N_3+"""" TEXT,
+    "taux_anxio_"""+param_N_5+"""" TEXT,
+    "taux_anxio__"""+param_N_4+"""" TEXT,
+    "taux_anxio__"""+param_N_3+"""" TEXT,
+    "taux_atb__"""+param_N_4+"""" TEXT,
+    "taux_atb__"""+param_N_3+"""" TEXT,
+    "taux_atbr__"""+param_N_4+"""" TEXT,
+    "taux_atbr__"""+param_N_3+"""" TEXT,
+    taux_atu TEXT,
+    taux_autres_atb TEXT,
+    taux_cephalo TEXT,
+    taux_deces TEXT,
+    "taux_demi_vie_anxio_"""+param_N_5+"""" TEXT,
+    "taux_demi_vie_anxio__"""+param_N_4+"""" TEXT,
+    "taux_demi_vie_anxio__"""+param_N_3+"""" TEXT,
+    taux_fluoro TEXT,
+    taux_hospit_had TEXT,
+    taux_hospit_mco TEXT,
+    "taux_hypno_"""+param_N_5+"""" TEXT,
+    "Taux_hypno__"""+param_N_4+"""" TEXT,
+    "taux_hypno__"""+param_N_3+"""" TEXT,
+    "taux_neuro_"""+param_N_5+"""" TEXT,
+    "taux_neuro__"""+param_N_4+"""" TEXT,
+    "taux_neuro__"""+param_N_3+"""" TEXT,
+    "taux_neuro_alzh_"""+param_N_5+"""" TEXT,
+    "taux_neuro_alzh_"""+param_N_4+"""" TEXT,
+    "taux_neuro_alzh_"""+param_N_3+"""" TEXT,
+    taux_occupation TEXT,
+    taux_plus_10_medics_cip13 TEXT,
+    taux_plus_10_medics_variante TEXT,
+    taux_plus_de_2_psycho_cip07 TEXT,
+    taux_plus_de_2_psycho_cip13 TEXT,
+    top1_medic TEXT,
+    top10_medic TEXT,
+    top2_medic TEXT,
+    top3_medic TEXT,
+    top4_medic TEXT,
+    top5_medic TEXT,
+    top6_medic TEXT,
+    top7_medic TEXT,
+    top8_medic TEXT,
+    top9_medic TEXT,
+    tx_deces_3m_entree TEXT);"""
+    cursor.execute (EHPAD)
+    
+    clean_n_2= f"""
+    CREATE TABLE IF NOT EXISTS export_tdbesms_2022_region_agg (
+     "index"  "INTEGER",
+    "region"  "TEXT",
+    "departement"  "TEXT",
+    "categorie"  "TEXT",
+    "groupe_homogene"  "TEXT",
+    "finess_geographique"  "TEXT",
+    "raison_sociale"  "TEXT",
+    "structuration"  "TEXT",
+    "statut_juridique"  "TEXT",
+    "ville"  "TEXT",
+    "niveau_de_validation"  "TEXT",
+    "etat_davancement"  "TEXT",
+    "finess_juridique"  "TEXT",
+    "raison_sociale_juridique"  "TEXT",
+    "sources_de_financement"  "TEXT",
+    "nomenclature_comptable_applicable"  "TEXT",
+    "option_tarifaire"  "TEXT",
+    "modalites_de_tarification"  "TEXT",
+    "date_de_delivrance_de_lautorisation_liee_a_lactivite_principale"  "TEXT",
+    "date_douverture_de_la_structure"  "TEXT",
+    "plateforme_daccompagnement_et_de_repit_des_aidants"  "TEXT",
+    "dispositifs_specifiques_destines_aux_enfants_et_adolescents_handicapes"  "TEXT",
+    "dispositifs_specifiques_destines_aux_adultes_handicapes"  "TEXT",
+    "autorisation_specifique_-_uhr__unite_specifique_alzheimer_pasa__esa__centre_de_ressources_territorial_pour_personnes_agees"  "TEXT",
+    "cpom_medico-social_en_cours"  "TEXT",
+    "date_dentree_en_vigueur_du_cpom"  "TEXT",
+    "date_decheance_du_cpom"  "TEXT",
+    "partenaires_signataires_du_cpom<"  "TEXT",
+    "signature_dune_convention_tripartite_esms_ars_et_cd"  "TEXT",
+    "date_de_signature_de_la_convention_tripartite"  "TEXT",
+    "date_decheance_de_la_convention_tripartite" "TEXT",
+    "nombre_de_personnes_accompagnees_au_3112_disposant_dune_orientation_de_la_mdph"  "REAL",
+    "-_nombre_de_lits_et_places_autorises_au_3112n-1_permanent"  "REAL",
+    "-_nombre_de_lits_et_places_installes_au_3112n-1_permanent"  "REAL",
+    "-_nombre_de_lits_et_places_autorises_au_3112n-1_temporaire"  "REAL",
+    "-_nombre_de_lits_et_places_installes_au_3112n-1_temporaire"  "REAL",
+    "-_nombre_de_places_autorisees_au_3112n-1_accueil_de_jour"  "REAL",
+    "-_nombre_de_places_installees_au_3112n-1_accueil_de_jour"  "REAL",
+    "nombre_de_places_habilitees_a_laide_sociale_departementale_a_lhebergement"  "REAL",
+    "nombre_de_seancesactes_finances_sur_lannee"  "REAL",
+    "modalites_dorganisation_de_lhebergement_temporaire_etou_de_laccueil_de_jour"  "TEXT",
+    "livret_daccueil__date_de_la_derniere_actualisation"  "TEXT",
+    "charte_des_droits_et_libertes_de_la_personne_accueillie__annexee_au_livret_daccueil_et_affichee_dans_lesms"  "TEXT",
+    "contrat_de_sejour_ou_document_individuel_de_prise_en_charge__date_de_la_derniere_actualisation"  "TEXT",
+    "liste_des_personnes_qualifiees__annexee_au_livret_daccueil"  "TEXT",
+    "reglement_de_fonctionnement__date_de_la_derniere_actualisation"  "TEXT",
+    "conseil_de_la_vie_sociale_ou_autre_forme_de_participation__date_de_la_derniere_reunion_avant_le_3112_de_lexercice_clos"  "TEXT",
+    "projet_detablissement_ou_de_service__date_de_la_derniere_actualisation"  "TEXT",
+    "criteres_dadmission_les_criteres_dadmission_dans_letablissement_ou_le_service_sont_formalises_dans_le_projet_detablissement_ou_de_service"  "TEXT",
+    "formalisation_de_la_demarche_de_gestion_des_risques_et_de_lutte_contre_la_maltraitance"  "TEXT",
+    "demarche_de_certification_complementaire"  "TEXT",
+    "si_demarche_de_certification_a_quelle_date_a-t-elle_ete_obtenue_"  "TEXT",
+    "certification_sur__fonctions_administratives_et_de_gestion"  "TEXT",
+    "certification_sur__fonctions_daccompagnement_et__ou_de_soins"  "TEXT",
+    "certification_sur__fonctions_logistiques_ou_support"  "TEXT",
+    "soins_somatiques_et_psychiques"  "TEXT",
+    "mode_de_realisation_des_soins_somatiques_et_psychiques"  "TEXT",
+    "reeducation_et_readaptation_fonctionnelle"  "TEXT",
+    "mode_de_realisation_de_la_reeducation_et_readaptation_fonctionnelle"  "TEXT",
+    "prestations_en_matiere_dautonomie"  "TEXT",
+    "mode_de_realisation_des_prestations_en_matiere_dautonomie"  "TEXT",
+    "accompagnements_pour_exercer_ses_droits"  "TEXT",
+    "mode_de_realisation_de_laccompagnement_pour_exercer_ses_droits"  "TEXT",
+    "accompagnements_au_logement"  "TEXT",
+    "mode_de_realisation_de_laccompagnement_au_logement"  "TEXT",
+    "accompagnements_pour_exercer_ses_roles_sociaux"  "TEXT",
+    "mode_de_realisation_de_laccompagnement_pour_exercer_ses_roles_sociaux"  "TEXT",
+    "accompagnements_pour_participer_a_la_vie_sociale"  "TEXT",
+    "mode_de_realisation_de_laccompagnement_pour_participer_a_la_vie_sociale"  "TEXT",
+    "accompagnement_en_matiere_de_ressources_et_dautogestion"  "TEXT",
+    "mode_de_realisation_de_laccompagnement_en_matiere_de_ressources_et_dautogestion"  "TEXT",
+    "prestations_de_coordination_renforcee_pour_la_coherence_du_parcours"  "TEXT",
+    "mode_de_realisation_des_prestations_de_coordination_renforcee_pour_la_coherence_du_parcours"  "TEXT",
+    "les_prestations_sont_realisees"  "TEXT",
+    "gestion_des_ressources_humaines"  "TEXT",
+    "mode_de_realisation_de_la_gestion_des_ressources_humaines"  "TEXT",
+    "gestion_administrative_budgetaire_financiere_et_comptable"  "TEXT",
+    "mode_de_realisation_de_la_gestion_administrative_budgetaire_financiere_et_comptable"  "TEXT",
+    "realisation_des_achats_de_la_structure"  "TEXT",
+    "mode_de_mutualisation_des_achats_de_la_structure" "TEXT",
+    "information_et_communication"  "TEXT",
+    "mode_de_realisation_de_la_gestion_de_linformation_et_de_la_communication"  "TEXT",
+    "qualite_et_securite"  "TEXT",
+    "mode_de_realisation_de_la_gestion_de_la_qualite_et_de_la_securite"  "TEXT",
+    "relations_avec_le_territoire"  "TEXT",
+    "mode_de_realisation_de_la_gestion_des_relations_avec_le_territoire"  "TEXT",
+    "transports_lies_a_gerer_manager_cooperer"  "TEXT",
+    "mode_de_realisation_des_transports_lies_a_gerer_manager_cooperer"  "TEXT",
+    "fournir_des_repas"  "TEXT",
+    "mode_de_realisation_de_la_fourniture_des_repas"  "TEXT",
+    "entretenir_le_linge"  "TEXT",
+    "mode_de_realisation_de_lentretien_du_linge"  "TEXT",
+    "transports_lies_au_projet_individuel"  "TEXT",
+    "mode_de_realisation_des_transports_lies_au_projet_individuel"  "TEXT",
+    "transports_des_biens_et_materiels_lies_a_la_restauration_et_a_lentretien_du_linge"  "TEXT",
+    "mode_de_realisation_des_transports_des_biens_et_materiels_lies_a_la_restauration_et_a_lentretien_du_linge"  "TEXT",
+    "demarche_formalisee_de_gestion_previsionnelle_des_metiers_et_des_competences"  "TEXT",
+    "nombre_de_cdd_de_remplacement"  "REAL",
+    "organisation_comprenant_un_pool_de_remplacement"  "TEXT",
+    "fonction_publique__convention_collective"  "TEXT",
+    "nature_du_diplome_du_directeur"  "TEXT",
+    "etablissement_mono-site"  "TEXT",
+    "etablissement_mono-batiment"  "TEXT",
+    "acces_a_un_groupe_electrogene_et_type_de_groupe"  "TEXT",
+    "nature_du_droit_doccupation_du_ou_des_batiments"  "TEXT",
+    "superficie_des_locaux_en_m2"  "TEXT",
+    "superficie_des_terrains_hors_emprise_fonciere_en_m2"  "TEXT",
+    "nombre_de_chambres_individuelles_au_31_decembre_de_lannee_n-1"  "REAL",
+    "nombre_de_chambres_individuelles_au_31_decembre_de_lannee_n-11"  "REAL",
+    "nombre_de_chambres_doubles_au_31_decembre_de_lannee_n-1"  "REAL",
+    "nombre_de_chambres_doubles_au_31_decembre_de_lannee_n-11"  "REAL",
+    "nombre_de_chambres_superieures_a_deux_lits_au_31_decembre_de_lannee_n-1"  "REAL",
+    "nombre_de_chambres_superieures_a_deux_lits_au_31_decembre_de_lannee_n-11"  "REAL",
+    "nombre_total_de_chambres_installees_au_3112"  "REAL",
+    "nombre_total_de_chambres_installees_au_31_decembre_de_lannee_n-1"  "REAL",
+    "organisation_des_transports"  "TEXT",
+    "nombre_de_vehicules_adaptes_au_3112"  "REAL",
+    "nombre_de_vehicules_hors_adaptes_au_3112"  "REAL",
+    "accessibilite_au_transport_collectif"  "TEXT",
+    "plateau_technique__equipement_en_propre"  "TEXT",
+    "plateau_technique__equipement_en_propre1"  "TEXT",
+    "contrainte_architecturale_du_batiment_principal"  "TEXT",
+    "date_de_construction_du_batiment_principal"  "TEXT",
+    "date_des_derniers_gros_travaux_du_batiment_principal"  "TEXT",
+    "date_de_passage_de_la_derniere_commission_de_securite_dans_le_batiment_principal"  "TEXT",
+    "avis_favorable_de_la_commission_de_securite_pour_le_batiment_principal"  "TEXT",
+    "presence_damiante_dans_le_batiment_principal"  "TEXT",
+    "reglementation_energetique_appliquee_a_la_construction_du_batiment_principal"  "TEXT",
+    "mode_de_chauffage_principal_du_batiment_principal"  "TEXT",
+    "presence_dun_systeme_de_rafraichissement_des_locaux_du_batiment_principal"  "TEXT",
+    "isolation_des_menuiseries_exterieures_de_pieces_de_vies_du_batiment_principal"  "TEXT",
+    "respect_de_la_reglementation_accessibilite_du_batiment_principal"  "TEXT",
+    "nature_du_droit_doccupation_du_batiment_du_batiment_principal"   "TEXT",
+    "superficie_des_locaux_en_metres_carre_en_surface_dans_oeuvre_du_batiment_principal"  "TEXT",
+    "nombre_de_chambres_individuelles_dans_le_batiment_principal"  "REAL",
+    "nombre_de_chambres_doubles_dans_le_batiment_principal"  "REAL",
+    "nombre_de_chambres_superieures_a_deux_lits_dans_le_batiment_principal"  "REAL" ,
+    "nombre_total_de_chambres_dans_le_batiment_principal"  "REAL",
+    "nombre_total_de_lits_dans_le_batiment_principal"  "REAL",
+    "nombre_de_chambres_avec_sanitaire_complet_lavabo_douche_et_toilettes_dans_le_batiment_principal"  "REAL",
+    "nombre_de_chambres_avec_sanitaires_partiel_lavabo_et_toilettes_dans_le_batiment_principal"  "REAL",
+    "nombre_de_chambres_sans_sanitaire_dans_le_batiment_principal"  "REAL",
+    "type_derp_du_batiment_principal_j_ou_u"  "TEXT",
+    "signature_de_la_convention_plan_bleu"  "TEXT",
+    "partenariat_avec_un_reseau_de_sante"  "TEXT",
+    "partenariat_avec_des_acteurs_de_la_coordination_medico-sociale_un_dispositif_dappui_a_la_coordination_des_parcours_de_sante_mentionne_a_larticle_l_6327-1_du_code_de_la_sante_publique"  "TEXT",
+    "partenariat_avec_des_acteurs_de_la_coordination_medico-sociale_un_dispositif_dappui_a_la_coordination_des_parcours_de_sante_mentionne_a_larticle_l_6327-1_du_code_de_la_sante_publique1"  "TEXT",
+    "conventions_avec_des_equipes_mobiles"  "TEXT",
+    "convention_avec_une_equipe_de_had"  "TEXT",
+    "cooperation_inter-etablissements_a_partir_de_2017"  "TEXT",
+    "convention_avec_leducation_nationale"  "TEXT",
+    "mission_dappui-ressource_sur_le_territoire"  "TEXT",
+    "precisez_la_nature_de_ces_missions_dappui_ressource"  "TEXT",
+    "votre_etablissement_sest-il_organise_pour_conduire_la_demarche_damelioration_de_la_qualite_en_vue_de_la_prochaine_evaluation_programmee_par_les_autorites_"  "TEXT",
+    "avez-vous_engage_une_demarche_dautoevaluation_dans_la_perspective_de_la_prochaine_evaluation_programmee_par_les_autorites_"  "TEXT",
+    "date_du_dernier_rapport_devaluation"  "TEXT",
+    "la_politique_damelioration_continue_de_la_qualite_est-elle_formalisee_"  "TEXT",
+    "les_actions_menees_dans_ce_cadre_sont-elles_retracees_chaque_annee_dans_le_rapport_dactivite_"  "TEXT",
+    "taux_de_personnes_en_derogation_ou_hors_autorisation_pour_motifs_dage"  "REAL",
+    "1_an"  "REAL",
+    "1-2_ans"  "REAL",
+    "2-3_ans"  "REAL",
+    "3-4_ans"  "REAL",
+    "4-5_ans"  "REAL",
+    "5-6_ans"  "REAL",
+    "6-10_ans"  "REAL",
+    "de_11_a_15_ans"  "REAL",
+    "de_16_a_17_ans"  "REAL",
+    "de_18_a_19_ans"  "REAL",
+    "de_20_a_24_ans"  "REAL",
+    "de_25_a_29_ans"  "REAL",
+    "de_30_a_34_ans"  "REAL",
+    "de_35_a_39_ans"  "REAL",
+    "de_40_a_44_ans"  "REAL",
+    "de_45_a_49_ans"   "REAL",
+    "de_50_a_54_ans"  "REAL",
+    "de_55_a_59_ans"  "REAL",
+    "de_60_a_74_ans"  "REAL",
+    "de_75_a_84_ans"  "REAL",
+    "de_85_a_95_ans"  "REAL",
+    "de_96_ans_et_plus"  "REAL",
+    "personnes_gir_1"  "REAL",
+    "personnes_gir_2"  "REAL",
+    "personnes_gir_3"  "REAL",
+    "personnes_gir_4"  "REAL",
+    "personnes_gir_5"  "REAL",
+    "personnes_gir_6" "REAL",
+    "deficiences_intellectuelles"  "REAL",
+    "deficiences_intellectuelles1"  "REAL",
+    "autisme_et_autres_ted"  "REAL",
+    "autisme_et_autres_ted1"  "REAL",
+    "troubles_du_psychisme"  "REAL",
+    "troubles_du_psychisme1"  "REAL",
+    "troubles_du_langage_et_des_apprentissages"  "REAL",
+    "troubles_du_langage_et_des_apprentissages1"  "REAL",
+    "deficiences_auditives"  "REAL",
+    "deficiences_auditives1"  "REAL",
+    "deficiences_visuelles"  "REAL",
+    "deficiences_visuelles1"  "REAL",
+    "deficiences_motrices"  "REAL",
+    "deficiences_motrices1"  "REAL",
+    "deficiences_metaboliques_viscerales_et_nutritionnelles"  "REAL",
+    "deficiences_metaboliques_viscerales_et_nutritionnelles1"  "REAL",
+    "cerebro-lesions"  "REAL",
+    "cerebro-lesions1"  "REAL",
+    "polyhandicap"  "REAL",
+    "troubles_du_comportement_et_de_la_communication_tcc"  "REAL",
+    "troubles_du_comportement_et_de_la_communication_tcc1"  "REAL",
+    "diagnostics_en_cours"  "REAL",
+    "autres_types_de_deficiences"  "REAL",
+    "autres_types_de_deficiences1"  "REAL",
+    "duree_moyenne_de_sejour__daccompagnement"  "REAL",
+    "part_des_personnes_beneficiant_dune_mesure_de_protection"  "REAL",
+    "taux_doccupation_des_places_habilitees_par_des_personnes_beneficiaires_de_laide_sociale_departementale_a_lhebergement"  "REAL",
+    "score_moyen_de_lechelle_retenue_de_dependance_dernier_gmp_valide"  "REAL",
+    "score_moyen_de_lechelle_retenue_de_dependance_dernier_gmp_connu"  "REAL",
+    "score_moyen_de_lechelle_retenue_de_charge_en_soins_pmp_valide"  "REAL",
+    "score_moyen_de_lechelle_retenue_de_charge_en_soins_dernier_pmp_connu" "REAL",
+    "_provenant_du_domicile_ou_du_milieu_ordinaire"  "REAL",
+    "_provenant_dun_etablissement_de_sante"  "REAL",
+    "_provenant_dun_etablissement_medico_social"  "REAL",
+    "_dont_la_provenance_nest_pas_connue"  "REAL",
+    "_de_sorties_par_deces"  "REAL",
+    "_de_sorties_par_hospitalisation"  "REAL",
+    "_de_sorties_par_retour_a_domicile_ou_en_milieu_ordinaire"  "REAL",
+    "_de_sorties_suite_a_reorientation_vers_un_autre_etablissement_medico-social"  "REAL",
+    "_de_sorties_vers_une_destination_inconnue"  "REAL",
+    "taux_dhospitalisation_complete"  "REAL",
+    "taux_de_realisation_de_lactivite"  "REAL",
+    "taux_de_realisation_de_lactivite1" "REAL",
+    "taux_doccupation_des_lits_ou_places_autorises_en_accompagnement_permanent"  "REAL",
+    "taux_doccupation_des_lits_ou_places_autorises_en_hebergement_temporaire"  "REAL",
+    "taux_doccupation_des_places_autorises_en_accueil_de_jour"  "REAL",
+    "nombre_moyen_de_journees_dabsence_des_personnes_accompagnees_sur_la_periode"  "REAL",
+    "part_des_actesseances_programmes_non_realises"  "REAL",
+    "file_active_des_personnes_accompagnees_sur_la_periode"  "REAL",
+    "taux_dadmission_sur_les_litsplaces"  "REAL",
+    "taux_dadmission_sur_les_litsplaces_en_accueilhebergement_temporaire"  "REAL",
+    "taux_dadmission_sur_les_places_en_accueil_de_jour"  "REAL",
+    "taux_de_rotation_des_personnes_accompagnees"  "REAL",
+    "taux_de_rotation_des_personnes_accompagnees_en_accueil_de_jour"  "REAL",
+    "taux_de_rotation_des_personnes_accompagnees_en_accueilhebergement_temporaire"  "REAL",
+    "taux_detp_vacants"  "REAL",
+    "dont_taux_detp_vacants_concernant_la_fonction_soins"  "REAL",
+    "dont_taux_detp_vacants_concernant_la_fonction_socio_educative"  "REAL",
+    "taux_de_prestations_externes_sur_les_prestations_directes"  "REAL",
+    "taux_de_personnels_occupant_une_fonction_de_gestion_dequipe_ou_de_management"  "REAL",
+    "taux_dabsenteisme_hors_formation_en_"  "REAL",
+    "taux_de_rotation_des_personnels"  "REAL",
+    "etp_directionencadrement"  "REAL",
+    "-_dont_nombre_detp_reels_de_personnel_medical_dencadrement"  "REAL",
+    "-_dont_autre_directionencadrement"  "REAL",
+    "etp_administration_gestion"  "REAL",
+    "etp_services_generaux"  "REAL",
+    "etp_restauration"  "REAL",
+    "etp_socio-educatif"  "REAL",
+    "-_dont_nombre_detp_reels_daide_medico-psychologique"  "REAL",
+    "-_dont_nombre_detp_reels_danimateur"  "REAL",
+    "-_dont_nombre_detp_reels_de_moniteur_educateur_au_3112"  "REAL",
+    "-_dont_nombre_detp_reels_deducateur_specialise_au_3112"  "REAL",
+    "-_dont_nombre_detp_reels_dassistant_social_au_3112"  "REAL",
+    "-_dont_autre_socio_educatif"  "REAL",
+    "etp_paramedical"  "REAL",
+    "-_dont_nombre_detp_reels_dinfirmier"  "REAL",
+    "-_dont_nombre_detp_reels_daide_medico-psychologique1"  "REAL",
+    "-_dont_nombre_detp_reels_daide_soignant"  "REAL",
+    "-_dont_nombre_detp_reels_de_kinesitherapeute"  "REAL",
+    "-_dont_nombre_detp_reels_de_psychomotricien"  "REAL",
+    "-_dont_nombre_detp_reels_dergotherapeute"  "REAL",
+    "-_dont_nombre_detp_reels_dorthophoniste"  "REAL",
+    "-_dont_autre_paramedical"  "REAL",
+    "etp_psychologue"  "REAL",
+    "etp_ash"  "REAL",
+    "etp_medical"  "REAL",
+    "-_dont_nombre_detp_reels_de_medecin_coordonnateur"  "REAL",
+    "-_dont_autre_medical"  "REAL",
+    "etp_personnel_education_nationale"  "REAL",
+    "etp_autres_fonctions"  "REAL",
+    "_de_personnes_agees_de_moins_de_20_ans"  "REAL",
+    "_de_personnes_agees_de_20_-_29_ans"  "REAL",
+    "_de_personnes_agees_de_30_-_39_ans"  "REAL",
+    "_de_personnes_agees_de_40_-_49_ans" "REAL",
+    "_de_personnes_agees_de_50_-_54_ans"  "REAL",
+    "_de_personnes_agees_de_55_-_59_ans"  "REAL",
+    "_de_personnes_agees_de_60_-_64_ans"  "REAL",
+    "_de_personnes_agees_de_plus_de_65_ans"  "REAL",
+    "taux_dabsenteisme_par_motif"  "REAL",
+    "pour_maladie_ordinaire__de_courte_duree"  "REAL",
+    "pour_maladie_de_moyenne_duree"  "REAL",
+    "pour_maladie_de_longue_duree"  "REAL",
+    "pour_maternitepaternite"  "REAL",
+    "pour_accident_du_travail__maladie_professionnelle"  "REAL",
+    "pour_conges_speciaux_dont_les_conges_sans_solde_hors_conges_payes"  "REAL",
+    "presence_dune_infirmiere_de_nuit"  "REAL",
+    "presence_effective_dun_medecin_coordonnateur_au_sein_de_letablissement"  "REAL",
+    "taux_datteinte_des_previsions_de_recettes"  "REAL",
+    "taux_datteinte_des_previsions_de_depenses"  "REAL",
+    "taux_de_caf"  "REAL",
+    "taux_de_vetuste_des_constructions"  "REAL",
+    "taux_de_vetuste_des_equipements_en_"  "REAL",
+    "taux_dendettement"  "REAL",
+    "fonds_de_roulement_en_jours_de_charges_courantes"  "REAL",
+    "groupe_1__depenses_afferentes_a_lexploitation_courante"  "REAL",
+    "groupe_2__depenses_afferentes_au_personnel"  "REAL",
+    "groupe_3__depenses_afferentes_a_la_structure"  "REAL",
+    "dont_recettes_section_hebergement_en_"  "REAL",
+    "dont_recettes_section_dependance"  "REAL",
+    "dont_recettes_section_soins"  "REAL",
+    "dont_depenses_section_hebergement"  "REAL",
+    "dont_depenses_section_dependance"  "REAL",
+    "dont_depenses_section_soins"  "REAL",
+    "taux_dutilisation_de_la_dotation_en_soins"  "REAL",
+    "depenses_de_personnel"  "REAL",
+    "depenses_de_prestation_et_fournitures_medicales_et_paramedicales"  "REAL",
+    "depenses_de_materiel_medical"  "REAL",
+    "une_feuille_de_route_si_ou_un_schema_directeur_des_systemes_dinformation_sdsi_a_ete_defini_et_formalise"  "TEXT",
+    "la_feuille_de_route_fait_lobjet_dun_point_de_situation_avec_la_direction"  "TEXT",
+    "le_si_est_un_axe_identifie_dans_le_cadre_du_cpom"  "TEXT",
+    "vous_identifiez_clairement_un_budget_pour_le_si_chaque_annee"  "TEXT",
+    "quel_est_le_montant_en_euro_du_budget_dexploitation_de_votre_si_"  "TEXT",
+    "quel_est_le_montant_en_euro_du_budget_dinvestissement_de_votre_si_"  "TEXT",
+    "vous_disposez_dun_responsable_des_systemes_dinformation_rsi_ou_directeur_des_systemes_dinformation_dsi"  "TEXT",
+    "vous_disposez_dune_solution_de_teleconsultation"  "TEXT",
+    "vous_disposez_dune_solution_de_teleexpertise"  "TEXT",
+    "votre_politique_de_securite_informatique_prevoit_la_mise_en_oeuvre_des_actions_suivantes"  "TEXT",
+    "des_sauvegardes_de_donnees_sont_effectuees_regulierement"  "TEXT",
+    "vous_avez_designe_un_delegue_a_la_protection_des_donnees_dpo"  "TEXT",
+    "actions_entreprises_pour_la_mise_en_conformite_avec_le_reglement_general_sur_la_protection_des_donnees_rgpd"  "TEXT",
+    "vous_disposez_de_procedures_degradees_en_cas_de_panne_informatique"  "TEXT",
+    "vos_donnees_de_sante_sont_hebergees_a_lexterne"  "TEXT",
+    "si_oui_lhebergeur_est-il_certifie_hebergeurs_de_donnees_de_sante_hds_"  "TEXT",
+    "les_salaries_ont_un_acces_dematerialise_aux_procedures__documents_de_leur_etablissement_ou_service"  "TEXT",
+    "votre_logiciel_identifie-t-il_les_usagersresidents_au_moyen_de_lidentification_nationale_de_sante_ins"  "TEXT",
+    "votre_logiciel_est_en_capacite_de_faire_le_lien_avec_le_dmp"  "TEXT",
+    "votre_logiciel_est-il_interoperable_avec_le_ror_"  "TEXT",
+    "votre_logiciel_est-il_interoperable_avec_e-parcours_"  "TEXT",
+    "votre_logiciel_est-il_interoperable_avec_viatrajectoire_"  "TEXT",
+    "votre_etablissement_ou_service_utilise_un_service_de_messagerie_securisee_integre_a_lespace_de_confiance_ms_sante"  "TEXT",
+    "de_quel_type_doutil_disposez-vous_pour_la_gestion_comptable_budgetaire_et_financiere_"  "TEXT",
+    "de_quel_type_doutil_disposez-vous_pour_le_pilotage_de_letablissement_ou_du_service_tableau_de_bord_transversaux_"  "TEXT",
+    "combien_de_modules_sont_couverts_par_votre_si_rh_actuel__1_piloter_la_fonction_rh_2_piloter_la_masse_salariale_3_recrutement_et_mobilite_4_gestion_administrative_du_personnel_5_gestion_des_temps_et_activites_gta_6_gestion_previsionnelle_des_metiers_et_des_competences_gpmc_7_gestion_de_la_formation_8_promouvoir_la_sante_et_la_qualite_de_vie_au_travail_9_paie"  "TEXT",
+    "de_quel_type_doutil_disposez_vous_pour_la_gestion_des_stocks_et_approvisionnements_"  "TEXT",
+    "de_quel_type_doutil_disposez_vous_pour_la_facturation_"  "TEXT",
+    "de_quel_type_doutil_disposez_vous_pour_le_dossier_de_lusager_"  "TEXT",
+    "taux_de_dossiers_administratifs_dun_usagerresident_informatises"  "TEXT",
+    "nombre_de_dossiers_administratifs_informatises_au_3112"  "REAL",
+    "nombre_de_personnes_accompagnees_dans_leffectif_au_3112"  "INTEGER",
+    "taux_de_projets_personnalises_dun_usagerresident_informatises"  "REAL",
+    "nombre_de_projets_personnalises_informatises_au_3112"  "REAL",
+    "nombre_de_personnes_accompagnees_dans_leffectif_au_31121"  "INTEGER",
+    "lusagerresident_ou_aidant_a_un_espace_dedie_dans_le_si_de_lesms"  "TEXT",
+    "lusagerresident_peut_alimenter_son_dossier_informatise"  "TEXT",
+    "integration_des_enjeux_du_developpement_durable"  "TEXT",
+    "qualite_de_vie_au_travail_qvt"  "TEXT",
+    "consommation_denergie_par_m2"  "REAL",
+    "consommation_denergie_annuelle_en_kwh"  "REAL",
+    "superficie_en_m2"  "REAL",
+    "politique_de_gestion_des_dechets"  "TEXT",
+    "politique_dachat"  "TEXT");"""
+    cursor.execute(clean_n_2)
+    
+    communes= f"""
+        CREATE TABLE IF NOT EXISTS commune_"""+param_N_2+"""(
+          "index" INTEGER,
+          typecom TEXT,
+         com  TEXT,
+         reg  TEXT,
+         dep  TEXT,
+         ctcd TEXT,
+         arr REAL,
+         tncc INTEGER,
+         ncc    TEXT,
+         nccenr TEXT,
+         libelle TEXT,
+         can REAL,
+         comparent REAL);"""
+    cursor.execute(communes)
+    
+    region= f"""
+        CREATE TABLE IF NOT EXISTS region_"""+param_N_2+""" (
+        "unnamed_0" INTEGER,
+        reg TEXT,
+        cheflieu TEXT,
+        tncc INTEGER,
+        ncc INTEGER,
+        nccenr TEXT,
+        libelle TEXT);"""
+    cursor.execute(region)
+    print('Tables créées avec succès.')
 
-    except sqlite3.Error as error:
-        print("Failed to update sqlite table", error)
-    finally:
-        if sqliteConnection:
-            sqliteConnection.close()
-            print("The SQLite connection is closed")
-table_name = '20220624_Diamant_MS_Demande_BD'
-_updateTable(dbname, table_name, "input/sources/20220624_Diamant_MS_Demande_BD.xlsx" )
-
-Sources: 
-    - input_xslx
-    - input_csx
-    - ref
-'''
+def tableExists(conn, table_name):
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?;", (table_name,))
+    return cursor.fetchone() is not None
