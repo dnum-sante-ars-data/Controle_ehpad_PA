@@ -9,6 +9,7 @@ from modules.transform.transform import executeTransform, inittable
 from modules.export.export import localToSFTP
 from modules.importsource.importSource import decryptFile
 
+### il y a 1 fois la fonction read_settings, supprimer celle ci, on ne doit appeler que celle de utils
 def read_settings():
     with open('settings/settings.json') as f:
         data = json.load(f)
@@ -50,6 +51,7 @@ def main(args):
         allFunctions(args.region)
     return
 
+### en python les fonctions s'écrivent minuscule et _
 def exeDbInit():
     dbname = utils.read_settings('settings/settings.json', "db", "name")
     conn = initDb(dbname)
@@ -58,9 +60,12 @@ def exeDbInit():
     conn.close()
     return
 
+### Créer un module à part
 def createCsv():
+    ### Toujours chercher à mettre en variable pour simplfifier la lecture du code, par ex "data/input" > input = "data/input", et mettre les variable au début de la fonction
     allFolders = listdir('data/input')
     allFolders.remove('sivss')
+    ### ne plus utiliser cette fonction car le fichier sivss arrive bien un 1 fichier déjà concaténé contrairement à avant, supprimer la ligne au dessus aussi
     utils.concatSignalement()
     for folderName in allFolders:
         folderPath = 'data/input/{}'.format(folderName)
@@ -81,6 +86,7 @@ def createCsv():
                 df2.to_csv(outputFilePath, index=None, header=True, sep=';', encoding='UTF-8')
                 print('added csv file: {}'.format(inputFileName))
 
+### à déplacer dans un module spécifique, par ex load_to_db
 def loadCsvToDb():
     dbname = utils.read_settings('settings/settings.json', "db", "name")
     allCsv = listdir('data/to_csv')
@@ -90,6 +96,7 @@ def loadCsvToDb():
         table_name = inputCsvFilePath.split('/')[-1].split('.')[0]
         if tableExists(conn, table_name):
             print(f"La table {table_name} existe déjà. Ajout des données sans modification du type.")
+            ### Re écrire la fonction pour enlever clean data et csv reader et faire une variable dataframe =
             importSrcData(
                 utils.cleanSrcData(
                     utils.csvReader('data/to_csv/' + inputCsvFilePath)
