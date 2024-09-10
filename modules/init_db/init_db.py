@@ -19,11 +19,13 @@ def connDb(dbname):
     conn = sqlite3.connect(dbname + '.sqlite')
     return conn
 
+### à déplacer dans un module spécifique, par ex load_to_db
 def importSrcData(df, table_name, conn):
     df.to_sql(name=table_name, con=conn, if_exists='append', index=False)
     print('La table {} a été ajoutée à la base de donnée'.format(table_name))
 
-# Créer des tables avec les types spécifiés
+### à déplacer dans un module spécifique, par ex init_schema
+# Créer des tables avec les types 
 def createTablesWithTypes(conn,data):
     cursor = conn.cursor()
     with open('settings/settings.json') as f:
@@ -45,6 +47,7 @@ def createTablesWithTypes(conn,data):
     else:
         raise KeyError("La clé 'parametres' n'existe pas dans le fichier JSON")
 
+### toutes les fonctions sql doiventre être dans un fichier à part au même emplacement que le module, par ex ici module/init_schema
     EHPAD= f"""
 CREATE TABLE IF NOT EXISTS 'EHPAD_Indicateurs_"""+param_N_3+"""_REG_agg'(
     annee_coupe_gmp REAL,
@@ -532,7 +535,9 @@ CREATE TABLE IF NOT EXISTS 'EHPAD_Indicateurs_"""+param_N_3+"""_REG_agg'(
     cursor.execute(region)
     print('Tables créées avec succès.')
 
+### à déplacer dans un module spécifique, par ex load_to_db
 def tableExists(conn, table_name):
     cursor = conn.cursor()
+    ### Toujours séparer les fonctions sql dans un autre fichier
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?;", (table_name,))
     return cursor.fetchone() is not None
