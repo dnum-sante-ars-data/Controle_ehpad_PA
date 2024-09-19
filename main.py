@@ -1,26 +1,11 @@
 import argparse
 from modules.init_db.init_db import init_db, conn_db
 from utils import utils
-<<<<<<< HEAD
 from modules.transform.transform import execute_transform, init_table
 #from modules.export.export import create_export
 from modules.importsource.import_source import get_data_with_SFTP
 from modules.init_schema.create_csv import create_csv 
 from modules.init_schema.load_csv_to_db import load_csv_to_db 
-=======
-from modules.transform.transform import executeTransform, inittable
-from modules.export.export import localToSFTP
-from modules.importsource.importSource import decryptFile
-
-### il y a 1 fois la fonction read_settings, supprimer celle ci, on ne doit appeler que celle de utils
-def read_settings():
-    with open('settings/settings.json') as f:
-        data = json.load(f)
-    if "parametres" in data:
-        return data["parametres"], data
-    else:
-        raise KeyError("La clé 'parametres' n'existe pas dans le fichier JSON")
->>>>>>> 50b7140880f4d3d0214b3a8238f25e83cf0a3338
 
 def main(args):
     if args.commande == "import":
@@ -52,77 +37,10 @@ def main(args):
     elif args.commande == "all":
         all_functions(args.region)
 
-<<<<<<< HEAD
 def exe_db_init():
-=======
-### en python les fonctions s'écrivent minuscule et _
-def exeDbInit():
->>>>>>> 50b7140880f4d3d0214b3a8238f25e83cf0a3338
     dbname = utils.read_settings('settings/settings.json', "db", "name")
     conn = init_db(dbname)
     conn.close()
-<<<<<<< HEAD
-=======
-    return
-
-### Créer un module à part
-def createCsv():
-    ### Toujours chercher à mettre en variable pour simplfifier la lecture du code, par ex "data/input" > input = "data/input", et mettre les variable au début de la fonction
-    allFolders = listdir('data/input')
-    allFolders.remove('sivss')
-    ### ne plus utiliser cette fonction car le fichier sivss arrive bien un 1 fichier déjà concaténé contrairement à avant, supprimer la ligne au dessus aussi
-    utils.concatSignalement()
-    for folderName in allFolders:
-        folderPath = 'data/input/{}'.format(folderName)
-        allFiles = listdir(folderPath)
-        for inputFileName in allFiles:
-            inputFilePath = folderPath + '/' + inputFileName
-            outputFilePath = 'data/to_csv/' + inputFileName.split('.')[0] + '.csv'
-            if re.search('demo.csv|demo.xlsx', inputFileName):
-                print('file demo not added')
-            elif inputFileName.split('.')[-1].lower() == 'xlsx':
-                utils.convertXlsxToCsv(inputFilePath, outputFilePath)
-                print('converted excel file and added: {}'.format(inputFileName))
-            elif inputFileName.split('.')[-1].lower() == 'csv':
-                outputExcel = inputFilePath.split('.')[0] + '.xlsx'
-                df = pd.read_csv(inputFilePath, sep=';', encoding='latin-1', low_memory=False)
-                df.to_excel(outputExcel, index=None, header=True, encoding='UTF-8')
-                df2 = pd.read_excel(outputExcel)
-                df2.to_csv(outputFilePath, index=None, header=True, sep=';', encoding='UTF-8')
-                print('added csv file: {}'.format(inputFileName))
-
-### à déplacer dans un module spécifique, par ex load_to_db
-def loadCsvToDb():
-    dbname = utils.read_settings('settings/settings.json', "db", "name")
-    allCsv = listdir('data/to_csv')
-    conn = connDb(dbname)
-    _, data = read_settings()
-    for inputCsvFilePath in allCsv:
-        table_name = inputCsvFilePath.split('/')[-1].split('.')[0]
-        if tableExists(conn, table_name):
-            print(f"La table {table_name} existe déjà. Ajout des données sans modification du type.")
-            ### Re écrire la fonction pour enlever clean data et csv reader et faire une variable dataframe =
-            importSrcData(
-                utils.cleanSrcData(
-                    utils.csvReader('data/to_csv/' + inputCsvFilePath)
-                ),
-                table_name,
-                conn
-            )
-        else:
-            print(f"La table {table_name} n'existe pas. Création de la table et ajout des données.")
-            createTablesWithTypes(conn, data)
-            importSrcData(
-                utils.cleanSrcData(
-                    utils.csvReader('data/to_csv/' + inputCsvFilePath)
-                ),
-                table_name,
-                conn
-            )
-        print("file added to db: {}".format(inputCsvFilePath))
-    conn.close()
-    return
->>>>>>> 50b7140880f4d3d0214b3a8238f25e83cf0a3338
 
 def transform(region):
     dbname = utils.read_settings("settings/settings.json", "db", "name")
